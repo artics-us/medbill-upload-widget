@@ -139,6 +139,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               attributes: {
                 CONSENT_STATUS: 'pending',
+                BILL_ID: billId,
               },
               includeListIds: [BREVO_INCLUDE_LIST_ID],
               excludeListIds: [BREVO_EXCLUDE_LIST_ID],
