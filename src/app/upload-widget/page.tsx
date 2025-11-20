@@ -186,7 +186,7 @@ export default function UploadWidgetPage() {
             type="button"
             onClick={openFileDialog}
             disabled={isUploading}
-            className="px-4 py-2 rounded-full text-sm font-semibold bg-[#059669] text-white hover:bg-[#047955] disabled:bg-gray-300 disabled:text-gray-600"
+            className="px-4 py-2 rounded-full text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:text-gray-600"
           >
             Choose file
           </button>
@@ -216,7 +216,7 @@ export default function UploadWidgetPage() {
           className={`w-full rounded-full py-3 text-sm font-semibold ${
             isUploading || !file
               ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-              : 'bg-[#059669] text-white hover:bg-[#047955]'
+              : 'bg-emerald-500 text-white hover:bg-emerald-600'
           }`}
         >
           {isUploading ? 'Uploading…' : 'Upload bill'}
