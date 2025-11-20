@@ -46,6 +46,25 @@ export default function UploadWidgetPage() {
     setSuccessMessage(null);
   };
 
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const f = e.dataTransfer.files?.[0] || null;
+    setFile(f);
+    setError(null);
+    setSuccessMessage(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const openFileDialog = () => {
+    const input = document.getElementById('file-input') as HTMLInputElement | null;
+    input?.click();
+  };
+
   const runUpload = async () => {
     if (!file) {
       setError('Please select a file before continuing.');
@@ -139,24 +158,45 @@ export default function UploadWidgetPage() {
   }, [file]); // When file changes, runUpload will use the latest selected file
 
   return (
-    <div className="min-h-full w-full flex flex-col items-center justify-start p-4 bg-slate-50">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow p-6 space-y-4">
-        <h1 className="text-xl font-bold text-gray-900">
-          Upload your hospital bill
-        </h1>
-        <p className="text-sm text-gray-600">
-          Select your hospital bill PDF or image. We&apos;ll securely upload it
-          so our team can review it later.
-        </p>
-
-        <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center space-y-3">
+    <div className="w-full min-h-full flex flex-col items-center justify-start bg-transparent px-4 py-6">
+      <div className="w-full max-w-md space-y-4">
+        <div
+          className="border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center space-y-3 text-center"
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* hidden file input */}
           <input
+            id="file-input"
             type="file"
             accept=".pdf,image/*"
+            className="hidden"
             onChange={handleFileChange}
+            disabled={isUploading}
           />
+
+          <p className="text-sm text-gray-700">
+            Drag &amp; drop your bill here
+          </p>
+          <p className="text-xs text-gray-500">
+            or
+          </p>
+
+          <button
+            type="button"
+            onClick={openFileDialog}
+            disabled={isUploading}
+            className="px-4 py-2 rounded-full text-sm font-semibold bg-[#059669] text-white hover:bg-[#047955] disabled:bg-gray-300 disabled:text-gray-600"
+          >
+            Choose file
+          </button>
+
+          <p className="text-[11px] text-gray-400 mt-1">
+            Supported: PDF, images · Max 5MB
+          </p>
+
           {file && (
-            <div className="text-sm text-gray-700">
+            <div className="text-xs text-gray-700 mt-3">
               Selected:{' '}
               <span className="font-medium break-all">{file.name}</span>
             </div>
@@ -168,6 +208,7 @@ export default function UploadWidgetPage() {
           <p className="text-sm text-green-600">{successMessage}</p>
         )}
 
+        {/* アップロード実行ボタン */}
         <button
           type="button"
           onClick={runUpload}
@@ -175,7 +216,7 @@ export default function UploadWidgetPage() {
           className={`w-full rounded-full py-3 text-sm font-semibold ${
             isUploading || !file
               ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-              : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              : 'bg-[#059669] text-white hover:bg-[#047955]'
           }`}
         >
           {isUploading ? 'Uploading…' : 'Upload bill'}
