@@ -98,6 +98,7 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
     fileStatus: FileUploadStatus,
     index: number,
     billId: string,
+    isFromQueryParam: boolean,
   ): Promise<void> => {
     const { file } = fileStatus;
 
@@ -118,6 +119,7 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
           mimeType: file.type || 'application/octet-stream',
           size: file.size,
           billId, // Use the shared billId
+          checkDirectory: isFromQueryParam, // Only check directory if billId came from query param
         }),
       });
 
@@ -209,11 +211,17 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
 
     // Use case_id from query parameter if provided, otherwise reuse existing billId or generate a new one
     const existingSuccessFile = files.find((f) => f.status === 'success' && f.billId);
+    // If caseId (from query param) exists, use it (will check directory existence in backend)
+    // If existingSuccessFile has billId, reuse it (directory already exists)
+    // Otherwise, generate a new one (new directory will be created, no check needed)
     const billId = caseId || existingSuccessFile?.billId || (
       typeof window !== 'undefined' && window.crypto
         ? window.crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`
     );
+    // Only check directory existence if billId came from query param (caseId)
+    // If it's from existing file or newly generated, directory will exist or will be created
+    const isFromQueryParam = !!caseId;
 
     try {
       // Store the count of pending files before upload
@@ -222,7 +230,7 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
       // Upload only pending files in parallel using the same billId
       const uploadPromises = pendingFiles.map((fileStatus) => {
         const index = files.indexOf(fileStatus);
-        return uploadSingleFile(fileStatus, index, billId);
+        return uploadSingleFile(fileStatus, index, billId, isFromQueryParam);
       });
 
       await Promise.all(uploadPromises);

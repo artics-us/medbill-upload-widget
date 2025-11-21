@@ -20,7 +20,7 @@ export async function OPTIONS() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { fileName, mimeType, size, billId: providedBillId } = await req.json();
+    const { fileName, mimeType, size, billId: providedBillId, checkDirectory } = await req.json();
 
     // 1) Payload validation
     if (!fileName || !mimeType || !size) {
@@ -54,8 +54,9 @@ export async function POST(req: NextRequest) {
     const objectPath = `bills/${billId}/${fileName}`;
     const bucketName = BUCKET_NAME;
 
-    // 3) If billId was provided (from case_id), check if the directory exists
-    if (providedBillId) {
+    // 3) If billId was provided from query parameter (checkDirectory=true), verify directory exists
+    // If it's a new billId or from existing upload, skip the check (directory will be created or already exists)
+    if (checkDirectory && providedBillId) {
       try {
         // Check if the directory exists by checking for meta.json or any file in the directory
         const metaPath = `bills/${billId}/meta.json`;
