@@ -94,12 +94,12 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
     input?.click();
   };
 
-  const uploadSingleFile = async (
-    fileStatus: FileUploadStatus,
-    index: number,
-    billId: string,
-    isFromQueryParam: boolean,
-  ): Promise<void> => {
+const uploadSingleFile = async (
+  fileStatus: FileUploadStatus,
+  index: number,
+  billId: string,
+  isFromQueryParam: boolean,
+): Promise<{ billToken: string } | null> => {
     const { file } = fileStatus;
 
     // Update status to uploading
@@ -170,6 +170,7 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
       });
 
       console.log('File uploaded successfully to GCS:', gcsPath);
+      return { billToken };
     } catch (e: unknown) {
       console.error(e);
       const msg =
@@ -233,27 +234,28 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
         return uploadSingleFile(fileStatus, index, billId, isFromQueryParam);
       });
 
-      await Promise.all(uploadPromises);
+      const uploadResults = await Promise.all(uploadPromises);
 
-      // Count successfully uploaded files (including newly uploaded ones)
-      const totalSuccessCount = files.filter((f) => f.status === 'success').length;
+      // Count previously uploaded files (before this run)
+      const alreadyUploadedCount = files.filter((f) => f.status === 'success').length;
+      const totalSuccessCount = alreadyUploadedCount + pendingCount;
 
-      // Get billToken from any successfully uploaded file
-      const firstSuccessFile = files.find((f) => f.status === 'success' && f.billToken);
+      // Get billToken from the latest batch (fallback handled below if null)
+      const newBillToken =
+        uploadResults.find((result): result is { billToken: string } => !!result)?.billToken;
 
-      if (pendingCount > 0 && firstSuccessFile?.billToken) {
-        const alreadyUploadedCount = totalSuccessCount - pendingCount;
+      if (pendingCount > 0 && (newBillToken || alreadyUploadedCount > 0)) {
         setSuccessMessage(
           `${pendingCount} file${pendingCount > 1 ? 's' : ''} uploaded successfully.${alreadyUploadedCount > 0 ? ` (${totalSuccessCount} total)` : ''}`,
         );
 
         // Notify the parent (Base44) that upload is completed (only once for all files)
-        if (typeof window !== 'undefined' && window.parent) {
+        if (newBillToken && typeof window !== 'undefined' && window.parent) {
           const targetOrigin = getTargetOrigin();
           const msg: UploadDoneMessage = {
             type: 'UPLOAD_DONE',
             billId,
-            billToken: firstSuccessFile.billToken,
+            billToken: newBillToken,
           };
           window.parent.postMessage(msg, targetOrigin);
         }
