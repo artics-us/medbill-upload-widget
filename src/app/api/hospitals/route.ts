@@ -9,8 +9,21 @@ type Hospital = {
   state: string;
 };
 
-// Safety: assert the imported JSON type
 const HOSPITALS = hospitals as Hospital[];
+
+const ALLOWED_ORIGIN = process.env.BASE44_ORIGIN || '*';
+
+function withCors(res: NextResponse) {
+  res.headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  return res;
+}
+
+// Preflight 用
+export async function OPTIONS() {
+  return withCors(NextResponse.json({}));
+}
 
 // GET /api/hospitals?query=...
 export async function GET(req: Request) {
@@ -18,12 +31,10 @@ export async function GET(req: Request) {
   const rawQuery = searchParams.get('query') || '';
   const q = rawQuery.trim().toLowerCase();
 
-  // If query is too short, return empty list
   if (q.length < 2) {
-    return NextResponse.json([]);
+    return withCors(NextResponse.json([]));
   }
 
-  // Simple substring match on name/city/state
   const results = HOSPITALS.filter((h) => {
     const name = h.name.toLowerCase();
     const city = h.city.toLowerCase();
@@ -34,14 +45,13 @@ export async function GET(req: Request) {
       city.includes(q) ||
       state.includes(q)
     );
-  }).slice(0, 7); // limit to 7 results
+  }).slice(0, 7);
 
-  // Return a minimal payload for the UI
-  return NextResponse.json(
-    results.map((h) => ({
-      id: h.id,
-      name: h.name,
-      subtitle: `${h.city}, ${h.state}`,
-    })),
-  );
+  const payload = results.map((h) => ({
+    id: h.id,
+    name: h.name,
+    subtitle: `${h.city}, ${h.state}`,
+  }));
+
+  return withCors(NextResponse.json(payload));
 }
