@@ -5,9 +5,8 @@ import hospitals from '@/data/hospitals-us.json';
 type Hospital = {
   id: string;
   name: string;
-  city?: string;
-  state?: string;
-  zip?: string;
+  city: string;
+  state: string;
 };
 
 // Safety: assert the imported JSON type
@@ -24,18 +23,16 @@ export async function GET(req: Request) {
     return NextResponse.json([]);
   }
 
-  // Simple substring match on name/city/state/zip
+  // Simple substring match on name/city/state
   const results = HOSPITALS.filter((h) => {
     const name = h.name.toLowerCase();
-    const city = (h.city || '').toLowerCase();
-    const state = (h.state || '').toLowerCase();
-    const zip = (h.zip || '').toLowerCase();
+    const city = h.city.toLowerCase();
+    const state = h.state.toLowerCase();
 
     return (
       name.includes(q) ||
       city.includes(q) ||
-      state.includes(q) ||
-      zip.includes(q)
+      state.includes(q)
     );
   }).slice(0, 7); // limit to 7 results
 
@@ -44,8 +41,7 @@ export async function GET(req: Request) {
     results.map((h) => ({
       id: h.id,
       name: h.name,
-      subtitle: [h.city, h.state].filter(Boolean).join(', '),
-      zip: h.zip ?? null,
+      subtitle: `${h.city}, ${h.state}`,
     })),
   );
 }
