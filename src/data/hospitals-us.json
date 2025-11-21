@@ -1,0 +1,254 @@
+[
+    {
+      "id": "emory-university-hospital",
+      "name": "Emory University Hospital",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "emory-university-hospital-midtown",
+      "name": "Emory University Hospital Midtown",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "emory-st-josephs-hospital",
+      "name": "Emory Saint Joseph's Hospital",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "emory-decatur-hospital",
+      "name": "Emory Decatur Hospital",
+      "city": "Decatur",
+      "state": "GA"
+    },
+    {
+      "id": "emory-hillandale-hospital",
+      "name": "Emory Hillandale Hospital",
+      "city": "Lithonia",
+      "state": "GA"
+    },
+    {
+      "id": "emory-johns-creek-hospital",
+      "name": "Emory Johns Creek Hospital",
+      "city": "Johns Creek",
+      "state": "GA"
+    },
+    {
+      "id": "emory-orthopaedics-spine-hospital",
+      "name": "Emory Orthopaedics & Spine Hospital",
+      "city": "Tucker",
+      "state": "GA"
+    },
+    {
+      "id": "grady-memorial-hospital",
+      "name": "Grady Memorial Hospital",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "piedmont-atlanta-hospital",
+      "name": "Piedmont Atlanta Hospital",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "piedmont-fayette-hospital",
+      "name": "Piedmont Fayette Hospital",
+      "city": "Fayetteville",
+      "state": "GA"
+    },
+    {
+      "id": "piedmont-newnan-hospital",
+      "name": "Piedmont Newnan Hospital",
+      "city": "Newnan",
+      "state": "GA"
+    },
+    {
+      "id": "piedmont-henry-hospital",
+      "name": "Piedmont Henry Hospital",
+      "city": "Stockbridge",
+      "state": "GA"
+    },
+    {
+      "id": "piedmont-rockdale-hospital",
+      "name": "Piedmont Rockdale Hospital",
+      "city": "Conyers",
+      "state": "GA"
+    },
+    {
+      "id": "piedmont-mountainside-hospital",
+      "name": "Piedmont Mountainside Hospital",
+      "city": "Jasper",
+      "state": "GA"
+    },
+    {
+      "id": "piedmont-walton-hospital",
+      "name": "Piedmont Walton Hospital",
+      "city": "Monroe",
+      "state": "GA"
+    },
+    {
+      "id": "piedmont-cartersville-hospital",
+      "name": "Piedmont Cartersville Hospital",
+      "city": "Cartersville",
+      "state": "GA"
+    },
+    {
+      "id": "northside-hospital-atlanta",
+      "name": "Northside Hospital Atlanta",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "northside-hospital-cherokee",
+      "name": "Northside Hospital Cherokee",
+      "city": "Canton",
+      "state": "GA"
+    },
+    {
+      "id": "northside-hospital-forsyth",
+      "name": "Northside Hospital Forsyth",
+      "city": "Cumming",
+      "state": "GA"
+    },
+    {
+      "id": "northside-hospital-gwinnett",
+      "name": "Northside Hospital Gwinnett",
+      "city": "Lawrenceville",
+      "state": "GA"
+    },
+    {
+      "id": "northside-hospital-duluth",
+      "name": "Northside Hospital Duluth",
+      "city": "Duluth",
+      "state": "GA"
+    },
+    {
+      "id": "childrens-healthcare-of-atlanta-egleston",
+      "name": "Children's Healthcare of Atlanta - Egleston",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "childrens-healthcare-of-atlanta-scottish-rite",
+      "name": "Children's Healthcare of Atlanta - Scottish Rite",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "childrens-healthcare-of-atlanta-hughes-spalding",
+      "name": "Children's Healthcare of Atlanta - Hughes Spalding",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "shepherd-center",
+      "name": "Shepherd Center",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "wellstar-kennestone-regional-medical-center",
+      "name": "Wellstar Kennestone Regional Medical Center",
+      "city": "Marietta",
+      "state": "GA"
+    },
+    {
+      "id": "wellstar-cobb-hospital",
+      "name": "Wellstar Cobb Hospital",
+      "city": "Austell",
+      "state": "GA"
+    },
+    {
+      "id": "wellstar-douglas-hospital",
+      "name": "Wellstar Douglas Hospital",
+      "city": "Douglasville",
+      "state": "GA"
+    },
+    {
+      "id": "wellstar-north-fulton-medical-center",
+      "name": "Wellstar North Fulton Medical Center",
+      "city": "Roswell",
+      "state": "GA"
+    },
+    {
+      "id": "wellstar-pauldaing-hospital",
+      "name": "Wellstar Paulding Hospital",
+      "city": "Hiram",
+      "state": "GA"
+    },
+    {
+      "id": "wellstar-spalding-regional-hospital",
+      "name": "Wellstar Spalding Regional Hospital",
+      "city": "Griffin",
+      "state": "GA"
+    },
+    {
+      "id": "wellstar-west-georgia-medical-center",
+      "name": "Wellstar West Georgia Medical Center",
+      "city": "LaGrange",
+      "state": "GA"
+    },
+    {
+      "id": "atlanta-va-medical-center",
+      "name": "Atlanta VA Medical Center",
+      "city": "Decatur",
+      "state": "GA"
+    },
+    {
+      "id": "atlanta-va-clinic-fort-mcpherson",
+      "name": "Atlanta VA Clinic at Fort McPherson",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "emory-rehabilitation-hospital",
+      "name": "Emory Rehabilitation Hospital",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "emory-long-term-acute-care",
+      "name": "Emory Long-Term Acute Care",
+      "city": "Decatur",
+      "state": "GA"
+    },
+    {
+      "id": "city-of-hope-atlanta",
+      "name": "City of Hope Atlanta",
+      "city": "Newnan",
+      "state": "GA"
+    },
+    {
+      "id": "wellstar-atlanta-medical-center-closed-2022",
+      "name": "Wellstar Atlanta Medical Center (closed 2022)",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "wellstar-atlanta-medical-center-south-closed",
+      "name": "Wellstar Atlanta Medical Center South (closed)",
+      "city": "East Point",
+      "state": "GA"
+    },
+    {
+      "id": "emory-university-hospital-wesley-woods",
+      "name": "Emory University Hospital at Wesley Woods",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "emory-saint-josephs-hospital-womens-center",
+      "name": "Emory Saint Joseph's Hospital Women's Center",
+      "city": "Atlanta",
+      "state": "GA"
+    },
+    {
+      "id": "northside-hospital-atlanta-womens-center",
+      "name": "Northside Hospital Atlanta Women's Center",
+      "city": "Atlanta",
+      "state": "GA"
+    }
+  ]
