@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
 
@@ -44,10 +44,7 @@ function getTargetOrigin(): string {
   return '*';
 }
 
-export default function UploadWidgetPage() {
-  const searchParams = useSearchParams();
-  const caseId = searchParams.get('bill_id');
-
+function UploadWidgetContent({ caseId }: { caseId: string | null }) {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -416,4 +413,25 @@ export default function UploadWidgetPage() {
       </div>
     </div>
   );
+}
+
+export default function UploadWidgetPage() {
+  return (
+    <Suspense fallback={<div className="w-full min-h-full flex flex-col items-center justify-start bg-transparent px-4 py-6">
+      <div className="w-full max-w-md space-y-4">
+        <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center space-y-3 text-center">
+          <p className="text-sm text-gray-700">Loading...</p>
+        </div>
+      </div>
+    </div>}>
+      <UploadWidgetWithParams />
+    </Suspense>
+  );
+}
+
+function UploadWidgetWithParams() {
+  const searchParams = useSearchParams();
+  const caseId = searchParams.get('bill_id');
+
+  return <UploadWidgetContent caseId={caseId} />;
 }
