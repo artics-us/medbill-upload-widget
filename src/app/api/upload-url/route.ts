@@ -20,7 +20,7 @@ export async function OPTIONS() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { fileName, mimeType, size } = await req.json();
+    const { fileName, mimeType, size, billId: providedBillId } = await req.json();
 
     // 1) Payload validation
     if (!fileName || !mimeType || !size) {
@@ -49,11 +49,53 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const billId = crypto.randomUUID();
+    // Use provided billId or generate a new one
+    const billId = providedBillId || crypto.randomUUID();
     const objectPath = `bills/${billId}/${fileName}`;
     const bucketName = BUCKET_NAME;
 
-    // 3) Generate signed URL
+    // 3) If billId was provided (from case_id), check if the directory exists
+    if (providedBillId) {
+      try {
+        // Check if the directory exists by checking for meta.json or any file in the directory
+        const metaPath = `bills/${billId}/meta.json`;
+        const [exists] = await storage
+          .bucket(bucketName)
+          .file(metaPath)
+          .exists();
+
+        // If meta.json doesn't exist, check if any file exists in the directory
+        if (!exists) {
+          const [files] = await storage
+            .bucket(bucketName)
+            .getFiles({ prefix: `bills/${billId}/`, maxResults: 1 });
+
+          if (files.length === 0) {
+            return withCors(
+              NextResponse.json(
+                {
+                  error: `Directory for bill_id "${billId}" does not exist.`,
+                },
+                { status: 404 },
+              ),
+            );
+          }
+        }
+      } catch (err) {
+        console.error('Error checking directory existence:', err);
+        return withCors(
+          NextResponse.json(
+            {
+              error:
+                'Failed to verify directory existence. Please check the bill_id.',
+            },
+            { status: 500 },
+          ),
+        );
+      }
+    }
+
+    // 4) Generate signed URL
     let signedUrl: string;
     try {
       const [url] = await storage

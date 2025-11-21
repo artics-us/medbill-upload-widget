@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Progress } from '@/components/ui/progress';
 
 const BASE44_ORIGIN = process.env.NEXT_PUBLIC_BASE44_ORIGIN || '';
 
@@ -13,6 +15,15 @@ type UploadDoneMessage = {
 type UploadErrorMessage = {
   type: 'UPLOAD_ERROR';
   error: string;
+};
+
+type FileUploadStatus = {
+  file: File;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  progress: number;
+  error?: string;
+  billId?: string;
+  billToken?: string;
 };
 
 // Decide the target origin for postMessage
@@ -34,25 +45,46 @@ function getTargetOrigin(): string {
 }
 
 export default function UploadWidgetPage() {
-  const [file, setFile] = useState<File | null>(null);
+  const searchParams = useSearchParams();
+  const caseId = searchParams.get('bill_id');
+
+  const [files, setFiles] = useState<FileUploadStatus[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] || null;
-    setFile(f);
-    setError(null);
-    setSuccessMessage(null);
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length > 0) {
+      const newFiles: FileUploadStatus[] = selectedFiles.map((file) => ({
+        file,
+        status: 'pending',
+        progress: 0,
+      }));
+      // Append new files to existing ones instead of replacing
+      setFiles((prev) => [...prev, ...newFiles]);
+      setError(null);
+      setSuccessMessage(null);
+      // Reset input so the same file can be selected again
+      e.target.value = '';
+    }
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    const f = e.dataTransfer.files?.[0] || null;
-    setFile(f);
-    setError(null);
-    setSuccessMessage(null);
+    const droppedFiles = Array.from(e.dataTransfer.files || []);
+    if (droppedFiles.length > 0) {
+      const newFiles: FileUploadStatus[] = droppedFiles.map((file) => ({
+        file,
+        status: 'pending',
+        progress: 0,
+      }));
+      // Append new files to existing ones instead of replacing
+      setFiles((prev) => [...prev, ...newFiles]);
+      setError(null);
+      setSuccessMessage(null);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -65,15 +97,19 @@ export default function UploadWidgetPage() {
     input?.click();
   };
 
-  const runUpload = async () => {
-    if (!file) {
-      setError('Please select a file before continuing.');
-      return;
-    }
+  const uploadSingleFile = async (
+    fileStatus: FileUploadStatus,
+    index: number,
+    billId: string,
+  ): Promise<void> => {
+    const { file } = fileStatus;
 
-    setIsUploading(true);
-    setError(null);
-    setSuccessMessage(null);
+    // Update status to uploading
+    setFiles((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], status: 'uploading', progress: 0 };
+      return updated;
+    });
 
     try {
       // 1. Request a signed upload URL from our backend
@@ -84,6 +120,7 @@ export default function UploadWidgetPage() {
           fileName: file.name,
           mimeType: file.type || 'application/octet-stream',
           size: file.size,
+          billId, // Use the shared billId
         }),
       });
 
@@ -93,10 +130,16 @@ export default function UploadWidgetPage() {
         throw new Error('Failed to get upload URL: ' + text);
       }
 
-      const { signedUrl, gcsPath, billId, billToken } =
-        await uploadUrlRes.json();
+      const { signedUrl, gcsPath, billToken } = await uploadUrlRes.json();
 
       console.log('Got signed URL:', { signedUrl, gcsPath, billId });
+
+      // Update progress
+      setFiles((prev) => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], progress: 50 };
+        return updated;
+      });
 
       // 2. Upload the file directly to GCS using the signed URL
       const putRes = await fetch(signedUrl, {
@@ -114,30 +157,126 @@ export default function UploadWidgetPage() {
         );
       }
 
-      setSuccessMessage('File uploaded successfully.');
+      // Update status to success
+      setFiles((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          status: 'success',
+          progress: 100,
+          billId,
+          billToken,
+        };
+        return updated;
+      });
+
       console.log('File uploaded successfully to GCS:', gcsPath);
-
-      // 3. Notify the parent (Base44) that upload is completed
-      if (typeof window !== 'undefined' && window.parent) {
-        const targetOrigin = getTargetOrigin();
-        const msg: UploadDoneMessage = { type: 'UPLOAD_DONE', billId, billToken };
-        window.parent.postMessage(msg, targetOrigin);
-      }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      const msg = e?.message || 'Something went wrong during upload.';
-      setError(msg);
+      const msg =
+        e instanceof Error ? e.message : 'Something went wrong during upload.';
 
-      // Notify parent about the error as well
+      // Update status to error
+      setFiles((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          status: 'error',
+          error: msg,
+        };
+        return updated;
+      });
+
+      // Error notification will be handled in runUpload
+      throw e;
+    }
+  };
+
+  const runUpload = useCallback(async () => {
+    if (files.length === 0) {
+      setError('Please select at least one file before continuing.');
+      return;
+    }
+
+    // Filter out files that are already successfully uploaded
+    const pendingFiles = files.filter((f) => f.status !== 'success');
+
+    if (pendingFiles.length === 0) {
+      setError('All files have already been uploaded.');
+      return;
+    }
+
+    setIsUploading(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    // Use case_id from query parameter if provided, otherwise reuse existing billId or generate a new one
+    const existingSuccessFile = files.find((f) => f.status === 'success' && f.billId);
+    const billId = caseId || existingSuccessFile?.billId || (
+      typeof window !== 'undefined' && window.crypto
+        ? window.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`
+    );
+
+    try {
+      // Store the count of pending files before upload
+      const pendingCount = pendingFiles.length;
+
+      // Upload only pending files in parallel using the same billId
+      const uploadPromises = pendingFiles.map((fileStatus) => {
+        const index = files.indexOf(fileStatus);
+        return uploadSingleFile(fileStatus, index, billId);
+      });
+
+      await Promise.all(uploadPromises);
+
+      // Count successfully uploaded files (including newly uploaded ones)
+      const totalSuccessCount = files.filter((f) => f.status === 'success').length;
+
+      // Get billToken from any successfully uploaded file
+      const firstSuccessFile = files.find((f) => f.status === 'success' && f.billToken);
+
+      if (pendingCount > 0 && firstSuccessFile?.billToken) {
+        const alreadyUploadedCount = totalSuccessCount - pendingCount;
+        setSuccessMessage(
+          `${pendingCount} file${pendingCount > 1 ? 's' : ''} uploaded successfully.${alreadyUploadedCount > 0 ? ` (${totalSuccessCount} total)` : ''}`,
+        );
+
+        // Notify the parent (Base44) that upload is completed (only once for all files)
+        if (typeof window !== 'undefined' && window.parent) {
+          const targetOrigin = getTargetOrigin();
+          const msg: UploadDoneMessage = {
+            type: 'UPLOAD_DONE',
+            billId,
+            billToken: firstSuccessFile.billToken,
+          };
+          window.parent.postMessage(msg, targetOrigin);
+        }
+      }
+    } catch (e: unknown) {
+      console.error('Upload error:', e);
+      const errorCount = files.filter((f) => f.status === 'error').length;
+      if (errorCount > 0) {
+        setError(
+          `${errorCount} file${errorCount > 1 ? 's' : ''} failed to upload.`,
+        );
+      }
+
+      // Notify parent about the error
       if (typeof window !== 'undefined' && window.parent) {
         const targetOrigin = getTargetOrigin();
-        const errMsg: UploadErrorMessage = { type: 'UPLOAD_ERROR', error: msg };
+        const errorMsg =
+          e instanceof Error ? e.message : 'Something went wrong during upload.';
+        const errMsg: UploadErrorMessage = {
+          type: 'UPLOAD_ERROR',
+          error: errorMsg,
+        };
         window.parent.postMessage(errMsg, targetOrigin);
       }
     } finally {
       setIsUploading(false);
     }
-  };
+  }, [files, caseId]);
 
   // Listen for START_ANALYSIS from Base44 and trigger upload when received
   useEffect(() => {
@@ -155,53 +294,104 @@ export default function UploadWidgetPage() {
       window.addEventListener('message', handler);
       return () => window.removeEventListener('message', handler);
     }
-  }, [file]); // When file changes, runUpload will use the latest selected file
+  }, [runUpload]); // When runUpload changes, update the event listener
 
   return (
     <div className="w-full min-h-full flex flex-col items-center justify-start bg-transparent px-4 py-6">
       <div className="w-full max-w-md space-y-4">
-        <div
-          className="border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center space-y-3 text-center"
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
-          {/* hidden file input */}
-          <input
-            id="file-input"
-            type="file"
-            accept=".pdf,image/*"
-            className="hidden"
-            onChange={handleFileChange}
-            disabled={isUploading}
-          />
+        {/* hidden file input */}
+        <input
+          id="file-input"
+          type="file"
+          accept=".pdf,image/*"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+          disabled={isUploading}
+        />
 
-          <p className="text-sm text-gray-700">
-            Drag &amp; drop your bill here
-          </p>
-          <p className="text-xs text-gray-500">
-            or
-          </p>
-
-          <button
-            type="button"
-            onClick={openFileDialog}
-            disabled={isUploading}
-            className="px-4 py-2 rounded-full text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:text-gray-600"
+        {files.length === 0 ? (
+          // Initial state: show drag & drop area
+          <div
+            className="border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center space-y-3 text-center"
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
           >
-            Choose file
-          </button>
+            <p className="text-sm text-gray-700">
+              Drag &amp; drop your bills here
+            </p>
+            <p className="text-xs text-gray-500">
+              or
+            </p>
 
-          <p className="text-[11px] text-gray-400 mt-1">
-            Supported: PDF, images · Max 5MB
-          </p>
+            <button
+              type="button"
+              onClick={openFileDialog}
+              disabled={isUploading}
+              className="px-4 py-2 rounded-full text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:text-gray-600"
+            >
+              Choose files
+            </button>
 
-          {file && (
-            <div className="text-xs text-gray-700 mt-3">
-              Selected:{' '}
-              <span className="font-medium break-all">{file.name}</span>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Supported: PDF, images · Max 5MB per file
+            </p>
+          </div>
+        ) : (
+          // Files selected: show file list and "Select another" button
+          <>
+            <div className="w-full space-y-2">
+              <p className="text-xs text-gray-600 font-medium">
+                Selected {files.length} file{files.length > 1 ? 's' : ''}:
+              </p>
+              {files.map((fileStatus, index) => (
+                <div
+                  key={`${fileStatus.file.name}-${index}`}
+                  className="text-xs text-gray-700 p-2 bg-gray-50 rounded border"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium break-all flex-1">
+                      {fileStatus.file.name}
+                    </span>
+                    <span className="ml-2 text-[10px]">
+                      {(fileStatus.file.size / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                  </div>
+                  {fileStatus.status === 'uploading' && (
+                    <Progress value={fileStatus.progress} className="h-1" />
+                  )}
+                  {fileStatus.status === 'success' && (
+                    <p className="text-[10px] text-green-600 mt-1">✓ Uploaded</p>
+                  )}
+                  {fileStatus.status === 'error' && (
+                    <p className="text-[10px] text-red-600 mt-1">
+                      ✗ {fileStatus.error}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+
+            <div
+              className="border-2 border-dashed border-gray-200 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2 text-center"
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
+              <button
+                type="button"
+                onClick={openFileDialog}
+                disabled={isUploading}
+                className="px-4 py-2 rounded-full text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:text-gray-600"
+              >
+                Select another
+              </button>
+
+              <p className="text-[11px] text-gray-400">
+                Supported: PDF, images · Max 5MB per file
+              </p>
+            </div>
+          </>
+        )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
         {successMessage && (
@@ -212,14 +402,16 @@ export default function UploadWidgetPage() {
         <button
           type="button"
           onClick={runUpload}
-          disabled={isUploading || !file}
+          disabled={isUploading || files.length === 0}
           className={`w-full rounded-full py-3 text-sm font-semibold ${
-            isUploading || !file
+            isUploading || files.length === 0
               ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
               : 'bg-emerald-500 text-white hover:bg-emerald-600'
           }`}
         >
-          {isUploading ? 'Uploading…' : 'Upload bill'}
+          {isUploading
+            ? `Uploading ${files.filter((f) => f.status === 'uploading').length} file${files.filter((f) => f.status === 'uploading').length !== 1 ? 's' : ''}…`
+            : `Upload ${files.length} bill${files.length !== 1 ? 's' : ''}`}
         </button>
       </div>
     </div>
