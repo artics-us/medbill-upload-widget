@@ -50,6 +50,45 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!window.parent) return;
+
+    const sendHeight = () => {
+      const height = document.documentElement.scrollHeight;
+      const targetOrigin = getTargetOrigin();
+
+      try {
+        window.parent.postMessage(
+          { type: 'WIDGET_HEIGHT', height },
+          targetOrigin
+        );
+      } catch (e) {
+        console.error('Failed to post WIDGET_HEIGHT message:', e);
+      }
+    };
+
+    // 初回送信
+    sendHeight();
+
+    // コンテンツの高さ変化を監視
+    const observer = new ResizeObserver(() => {
+      sendHeight();
+    });
+
+    // body を監視（必要なら他の要素も追加）
+    observer.observe(document.body);
+
+    // ページロード完了時にも念のため送る
+    window.addEventListener('load', sendHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('load', sendHeight);
+    };
+  }, []);
+  // 🔼 ここまで追加
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length > 0) {
@@ -94,12 +133,12 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
     input?.click();
   };
 
-const uploadSingleFile = async (
-  fileStatus: FileUploadStatus,
-  index: number,
-  billId: string,
-  isFromQueryParam: boolean,
-): Promise<{ billToken: string } | null> => {
+  const uploadSingleFile = async (
+    fileStatus: FileUploadStatus,
+    index: number,
+    billId: string,
+    isFromQueryParam: boolean,
+  ): Promise<{ billToken: string } | null> => {
     const { file } = fileStatus;
 
     // Update status to uploading
@@ -215,11 +254,12 @@ const uploadSingleFile = async (
     // If caseId (from query param) exists, use it (will check directory existence in backend)
     // If existingSuccessFile has billId, reuse it (directory already exists)
     // Otherwise, generate a new one (new directory will be created, no check needed)
-    const billId = caseId || existingSuccessFile?.billId || (
-      typeof window !== 'undefined' && window.crypto
+    const billId =
+      caseId ||
+      existingSuccessFile?.billId ||
+      (typeof window !== 'undefined' && window.crypto
         ? window.crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`
-    );
+        : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`);
     // Only check directory existence if billId came from query param (caseId)
     // If it's from existing file or newly generated, directory will exist or will be created
     const isFromQueryParam = !!caseId;
@@ -246,7 +286,9 @@ const uploadSingleFile = async (
 
       if (pendingCount > 0 && (newBillToken || alreadyUploadedCount > 0)) {
         setSuccessMessage(
-          `${pendingCount} file${pendingCount > 1 ? 's' : ''} uploaded successfully.${alreadyUploadedCount > 0 ? ` (${totalSuccessCount} total)` : ''}`,
+          `${pendingCount} file${pendingCount > 1 ? 's' : ''} uploaded successfully.${
+            alreadyUploadedCount > 0 ? ` (${totalSuccessCount} total)` : ''
+          }`,
         );
 
         // Notify the parent (Base44) that upload is completed (only once for all files)
@@ -327,9 +369,7 @@ const uploadSingleFile = async (
             <p className="text-sm text-gray-700">
               Drag &amp; drop your bills here
             </p>
-            <p className="text-xs text-gray-500">
-              or
-            </p>
+            <p className="text-xs text-gray-500">or</p>
 
             <button
               type="button"
@@ -368,7 +408,9 @@ const uploadSingleFile = async (
                     <Progress value={fileStatus.progress} className="h-1" />
                   )}
                   {fileStatus.status === 'success' && (
-                    <p className="text-[10px] text-green-600 mt-1">✓ Uploaded</p>
+                    <p className="text-[10px] text-green-600 mt-1">
+                      ✓ Uploaded
+                    </p>
                   )}
                   {fileStatus.status === 'error' && (
                     <p className="text-[10px] text-red-600 mt-1">
@@ -417,7 +459,13 @@ const uploadSingleFile = async (
           }`}
         >
           {isUploading
-            ? `Uploading ${files.filter((f) => f.status === 'uploading').length} file${files.filter((f) => f.status === 'uploading').length !== 1 ? 's' : ''}…`
+            ? `Uploading ${
+                files.filter((f) => f.status === 'uploading').length
+              } file${
+                files.filter((f) => f.status === 'uploading').length !== 1
+                  ? 's'
+                  : ''
+              }…`
             : `Upload ${files.length} bill${files.length !== 1 ? 's' : ''}`}
         </button>
       </div>
@@ -427,13 +475,17 @@ const uploadSingleFile = async (
 
 export default function UploadWidgetPage() {
   return (
-    <Suspense fallback={<div className="w-full min-h-full flex flex-col items-center justify-start bg-transparent px-4 py-6">
-      <div className="w-full max-w-md space-y-4">
-        <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center space-y-3 text-center">
-          <p className="text-sm text-gray-700">Loading...</p>
+    <Suspense
+      fallback={
+        <div className="w-full min-h-full flex flex-col items-center justify-start bg-transparent px-4 py-6">
+          <div className="w-full max-w-md space-y-4">
+            <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center space-y-3 text-center">
+              <p className="text-sm text-gray-700">Loading...</p>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>}>
+      }
+    >
       <UploadWidgetWithParams />
     </Suspense>
   );
