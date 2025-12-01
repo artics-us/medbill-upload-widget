@@ -72,7 +72,7 @@ const DATA_COLUMN_MAP: Record<string, string> = {
   balanceAmount: 'Balance amount',
   inCollections: 'In collections',
   insuranceStatus: 'Insurance status',
-  gcsFileUrl: 'GSC file URL',
+  gcsFileUrl: 'GCS file URL',
   currentStep: 'Current step',
   // Note: Some fields like createdAt, updatedAt, status, etc.
   // don't have direct mappings in the new spreadsheet structure
