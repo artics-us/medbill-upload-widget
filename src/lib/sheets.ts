@@ -76,6 +76,11 @@ async function ensureHeaders() {
       'Phone',
       'Agreed To Terms',
       'Status',
+      // Upload-related columns
+      'Has Upload',
+      'Upload Count',
+      'Last Upload At',
+      'Last Bill Token',
     ];
 
     // If headers don't exist or are different, create/update them
@@ -169,6 +174,11 @@ async function appendRow(data: Record<string, unknown>): Promise<void> {
       data.phone || '',
       data.agreedToTerms || '',
       data.status || 'in_progress',
+      // Upload-related columns
+      data.hasUpload ?? '',
+      data.uploadCount ?? '',
+      data.lastUploadAt ?? '',
+      data.lastBillToken ?? '',
     ];
 
     await sheets.spreadsheets.values.append({
@@ -220,7 +230,7 @@ async function updateRow(
     // Get current row data
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Sheet1!A${rowNumber}:N${rowNumber}`,
+      range: `Sheet1!A${rowNumber}:R${rowNumber}`,
     });
 
     const currentRow = response.data.values?.[0] || [];
@@ -239,6 +249,11 @@ async function updateRow(
       'phone',
       'agreedToTerms',
       'status',
+      // Upload-related columns
+      'hasUpload',
+      'uploadCount',
+      'lastUploadAt',
+      'lastBillToken',
     ];
 
     // Merge existing data with new data
@@ -271,7 +286,7 @@ async function updateRow(
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Sheet1!A${rowNumber}:N${rowNumber}`,
+      range: `Sheet1!A${rowNumber}:R${rowNumber}`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [row],
@@ -352,6 +367,25 @@ export async function saveCaseProgress(
         dataToSave.phone = stepData.phone || '';
         dataToSave.agreedToTerms = stepData.agreedToTerms || false;
         break;
+
+      // New step: upload status
+      case 'upload': {
+        // Allow flexible stepData shape; fall back to sensible defaults
+        const anyStep = stepData as Record<string, unknown>;
+        dataToSave.hasUpload =
+          (anyStep.hasUpload as boolean | undefined) ?? true;
+        dataToSave.uploadCount =
+          (anyStep.uploadCount as number | undefined) ?? '';
+        dataToSave.lastUploadAt =
+          (anyStep.lastUploadAt as string | undefined) ||
+          new Date().toISOString();
+        // billToken can come as lastBillToken or billToken
+        dataToSave.lastBillToken =
+          (anyStep.lastBillToken as string | undefined) ||
+          (anyStep.billToken as string | undefined) ||
+          '';
+        break;
+      }
 
       default:
         // For unknown steps, try to map common fields

@@ -1,6 +1,5 @@
 // src/app/api/upload-url/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { signBillToken } from '@/lib/token';
 import { storage } from '@/lib/gcs'; // さっきの gcs.ts を使う
 
@@ -20,7 +19,13 @@ export async function OPTIONS() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { fileName, mimeType, size, caseId: providedCaseId, checkDirectory } = await req.json();
+    const {
+      fileName,
+      mimeType,
+      size,
+      caseId: providedCaseId,
+      checkDirectory,
+    } = await req.json();
 
     // 1) Payload validation
     if (!fileName || !mimeType || !size) {
@@ -29,6 +34,17 @@ export async function POST(req: NextRequest) {
           {
             error:
               'Invalid payload: fileName, mimeType and size are all required.',
+          },
+          { status: 400 },
+        ),
+      );
+    }
+
+    if (!providedCaseId) {
+      return withCors(
+        NextResponse.json(
+          {
+            error: 'Invalid payload: existing caseId is required.',
           },
           { status: 400 },
         ),
@@ -49,8 +65,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Use provided caseId or generate a new one
-    const caseId = providedCaseId || crypto.randomUUID();
+    // Use provided caseId (must reference an existing case)
+    const caseId = providedCaseId;
     const objectPath = `bills/${caseId}/${fileName}`;
     const bucketName = BUCKET_NAME;
 

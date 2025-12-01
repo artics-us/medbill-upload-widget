@@ -291,6 +291,27 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
           }`,
         );
 
+        // Save upload status to /api/case-progress so it is reflected in Google Sheets
+        try {
+          await fetch('/api/case-progress', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              caseId: resolvedCaseId,
+              currentStep: 'upload',
+              stepData: {
+                hasUpload: true,
+                uploadCount: totalSuccessCount,
+                lastUploadAt: new Date().toISOString(),
+                billToken: newBillToken ?? null,
+              },
+            }),
+          });
+        } catch (cpErr) {
+          console.error('Failed to save upload step to /api/case-progress:', cpErr);
+          // Sheets 更新失敗はクリティカルではないので、UI 上は成功扱いのままにする
+        }
+
         // Notify the parent (Base44) that upload is completed (only once for all files)
         if (newBillToken && typeof window !== 'undefined' && window.parent) {
           const targetOrigin = getTargetOrigin();
