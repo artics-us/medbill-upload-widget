@@ -71,43 +71,26 @@ export async function POST(req: NextRequest) {
     const bucketName = BUCKET_NAME;
 
     // 3) If caseId was provided from query parameter (checkDirectory=true), verify directory exists
-    // If it's a new caseId or from existing upload, skip the check (directory will be created or already exists)
+    // If directory doesn't exist, log a warning but continue (GCS will create the directory when file is uploaded)
     if (checkDirectory && providedCaseId) {
       try {
-        // Check if the directory exists by checking for meta.json or any file in the directory
-        const metaPath = `case/${caseId}/meta.json`;
-        const [exists] = await storage
+        // Check if any file exists in the directory
+        const [files] = await storage
           .bucket(bucketName)
-          .file(metaPath)
-          .exists();
+          .getFiles({ prefix: `case/${caseId}/`, maxResults: 1 });
 
-        // If meta.json doesn't exist, check if any file exists in the directory
-        if (!exists) {
-          const [files] = await storage
-            .bucket(bucketName)
-            .getFiles({ prefix: `case/${caseId}/`, maxResults: 1 });
-
-          if (files.length === 0) {
-            return withCors(
-              NextResponse.json(
-                {
-                  error: `Directory for case_id "${caseId}" does not exist.`,
-                },
-                { status: 404 },
-              ),
-            );
-          }
+        // If directory doesn't exist, log a warning but continue
+        // GCS will automatically create the directory structure when the file is uploaded
+        if (files.length === 0) {
+          console.warn(
+            `Directory for case_id "${caseId}" does not exist, but continuing. Directory will be created on upload.`,
+          );
         }
       } catch (err) {
+        // Log error but don't fail - directory will be created on upload
         console.error('Error checking directory existence:', err);
-        return withCors(
-          NextResponse.json(
-            {
-              error:
-                'Failed to verify directory existence. Please check the case_id.',
-            },
-            { status: 500 },
-          ),
+        console.warn(
+          `Continuing despite directory check error. Directory will be created on upload.`,
         );
       }
     }
