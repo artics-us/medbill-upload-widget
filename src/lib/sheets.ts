@@ -43,6 +43,7 @@ if (keyJson) {
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 const SHEET_NAME = 'Leads'; // Sheet name in the spreadsheet
+const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || '';
 
 /**
  * Convert column index (0-based) to Google Sheets column letter (A, B, ..., Z, AA, AB, ...)
@@ -70,9 +71,10 @@ const DATA_COLUMN_MAP: Record<string, string> = {
   billType: 'Bill type',
   balanceAmount: 'Balance amount',
   inCollections: 'In collections',
-  // insuranceStatus is not mapped - not saved to Google Sheets
-  status: 'LP Status',
-  // Note: Some fields like createdAt, updatedAt, currentStep, etc.
+  insuranceStatus: 'Insurance status',
+  gcsFileUrl: 'GSC file URL',
+  currentStep: 'Current step',
+  // Note: Some fields like createdAt, updatedAt, status, etc.
   // don't have direct mappings in the new spreadsheet structure
   // They can be added to the mapping if needed
 };
@@ -213,8 +215,11 @@ async function appendRow(data: Record<string, unknown>): Promise<void> {
       const columnIndex = columnMap[columnName];
       if (columnIndex !== undefined && data[dataKey] !== undefined && data[dataKey] !== null && data[dataKey] !== '') {
         let value = data[dataKey];
-        // Convert boolean to TRUE/FALSE for Google Sheets
-        if (typeof value === 'boolean') {
+        // Special handling for inCollections: convert boolean to "yes"/"no"
+        if (dataKey === 'inCollections' && typeof value === 'boolean') {
+          value = value ? 'yes' : 'no';
+        } else if (typeof value === 'boolean') {
+          // Convert other booleans to TRUE/FALSE for Google Sheets
           value = value ? 'TRUE' : 'FALSE';
         }
         row[columnIndex] = String(value);
@@ -298,8 +303,11 @@ async function updateRow(
       const columnIndex = columnMap[columnName];
       if (columnIndex !== undefined && data[dataKey] !== undefined && data[dataKey] !== null && data[dataKey] !== '') {
         let value = data[dataKey];
-        // Convert boolean to TRUE/FALSE for Google Sheets
-        if (typeof value === 'boolean') {
+        // Special handling for inCollections: convert boolean to "yes"/"no"
+        if (dataKey === 'inCollections' && typeof value === 'boolean') {
+          value = value ? 'yes' : 'no';
+        } else if (typeof value === 'boolean') {
+          // Convert other booleans to TRUE/FALSE for Google Sheets
           value = value ? 'TRUE' : 'FALSE';
         }
         row[columnIndex] = String(value);
@@ -380,7 +388,7 @@ export async function saveCaseProgress(
         break;
 
       case 'insurance':
-        // insuranceStatus is not saved to Google Sheets
+        dataToSave.insuranceStatus = stepData.insuranceStatus || '';
         break;
 
       case 'contact':
@@ -405,6 +413,10 @@ export async function saveCaseProgress(
           (anyStep.lastCaseToken as string | undefined) ||
           (anyStep.caseToken as string | undefined) ||
           '';
+        // Generate GCS file URL for the case directory
+        if (GCS_BUCKET_NAME) {
+          dataToSave.gcsFileUrl = `https://console.cloud.google.com/storage/browser/${GCS_BUCKET_NAME}/case/${caseId}`;
+        }
         break;
       }
 
@@ -418,7 +430,8 @@ export async function saveCaseProgress(
           dataToSave.balanceAmount = stepData.balanceAmount;
         if (stepData.inCollections !== undefined)
           dataToSave.inCollections = stepData.inCollections;
-        // insuranceStatus is not saved to Google Sheets
+        if (stepData.insuranceStatus)
+          dataToSave.insuranceStatus = stepData.insuranceStatus;
         if (stepData.agreedToTerms !== undefined)
           dataToSave.agreedToTerms = stepData.agreedToTerms;
     }
