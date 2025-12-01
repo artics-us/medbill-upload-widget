@@ -9,7 +9,7 @@ const BASE44_ORIGIN = process.env.NEXT_PUBLIC_BASE44_ORIGIN || '';
 type UploadDoneMessage = {
   type: 'UPLOAD_DONE';
   caseId: string;
-  billToken: string;
+  caseToken: string;
 };
 
 type UploadErrorMessage = {
@@ -23,7 +23,7 @@ type FileUploadStatus = {
   progress: number;
   error?: string;
   caseId?: string;
-  billToken?: string;
+  caseToken?: string;
 };
 
 // Decide the target origin for postMessage
@@ -138,7 +138,7 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
     index: number,
     caseIdForUpload: string,
     isFromQueryParam: boolean,
-  ): Promise<{ billToken: string } | null> => {
+  ): Promise<{ caseToken: string } | null> => {
     const { file } = fileStatus;
 
     // Update status to uploading
@@ -168,7 +168,7 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
         throw new Error('Failed to get upload URL: ' + text);
       }
 
-      const { signedUrl, gcsPath, billToken } = await uploadUrlRes.json();
+      const { signedUrl, gcsPath, caseToken } = await uploadUrlRes.json();
 
       console.log('Got signed URL:', { signedUrl, gcsPath, caseId: caseIdForUpload });
 
@@ -203,13 +203,13 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
           status: 'success',
           progress: 100,
           caseId: caseIdForUpload,
-          billToken,
+          caseToken,
         };
         return updated;
       });
 
       console.log('File uploaded successfully to GCS:', gcsPath);
-      return { billToken };
+      return { caseToken };
     } catch (e: unknown) {
       console.error(e);
       const msg =
@@ -280,11 +280,11 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
       const alreadyUploadedCount = files.filter((f) => f.status === 'success').length;
       const totalSuccessCount = alreadyUploadedCount + pendingCount;
 
-      // Get billToken from the latest batch (fallback handled below if null)
-      const newBillToken =
-        uploadResults.find((result): result is { billToken: string } => !!result)?.billToken;
+      // Get caseToken from the latest batch (fallback handled below if null)
+      const newCaseToken =
+        uploadResults.find((result): result is { caseToken: string } => !!result)?.caseToken;
 
-      if (pendingCount > 0 && (newBillToken || alreadyUploadedCount > 0)) {
+      if (pendingCount > 0 && (newCaseToken || alreadyUploadedCount > 0)) {
         setSuccessMessage(
           `${pendingCount} file${pendingCount > 1 ? 's' : ''} uploaded successfully.${
             alreadyUploadedCount > 0 ? ` (${totalSuccessCount} total)` : ''
@@ -303,7 +303,7 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
                 hasUpload: true,
                 uploadCount: totalSuccessCount,
                 lastUploadAt: new Date().toISOString(),
-                billToken: newBillToken ?? null,
+                caseToken: newCaseToken ?? null,
               },
             }),
           });
@@ -313,12 +313,12 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
         }
 
         // Notify the parent (Base44) that upload is completed (only once for all files)
-        if (newBillToken && typeof window !== 'undefined' && window.parent) {
+        if (newCaseToken && typeof window !== 'undefined' && window.parent) {
           const targetOrigin = getTargetOrigin();
           const msg: UploadDoneMessage = {
             type: 'UPLOAD_DONE',
             caseId: resolvedCaseId,
-            billToken: newBillToken,
+            caseToken: newCaseToken,
           };
           window.parent.postMessage(msg, targetOrigin);
         }

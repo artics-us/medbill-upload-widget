@@ -80,7 +80,7 @@ async function ensureHeaders() {
       'Has Upload',
       'Upload Count',
       'Last Upload At',
-      'Last Bill Token',
+      'Last Case Token',
     ];
 
     // If headers don't exist or are different, create/update them
@@ -178,7 +178,7 @@ async function appendRow(data: Record<string, unknown>): Promise<void> {
       data.hasUpload ?? '',
       data.uploadCount ?? '',
       data.lastUploadAt ?? '',
-      data.lastBillToken ?? '',
+      data.lastCaseToken ?? '',
     ];
 
     await sheets.spreadsheets.values.append({
@@ -253,7 +253,7 @@ async function updateRow(
       'hasUpload',
       'uploadCount',
       'lastUploadAt',
-      'lastBillToken',
+      'lastCaseToken',
     ];
 
     // Merge existing data with new data
@@ -379,10 +379,10 @@ export async function saveCaseProgress(
         dataToSave.lastUploadAt =
           (anyStep.lastUploadAt as string | undefined) ||
           new Date().toISOString();
-        // billToken can come as lastBillToken or billToken
-        dataToSave.lastBillToken =
-          (anyStep.lastBillToken as string | undefined) ||
-          (anyStep.billToken as string | undefined) ||
+        // caseToken can come as lastCaseToken or caseToken
+        dataToSave.lastCaseToken =
+          (anyStep.lastCaseToken as string | undefined) ||
+          (anyStep.caseToken as string | undefined) ||
           '';
         break;
       }

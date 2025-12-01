@@ -1,6 +1,5 @@
 // src/app/api/case-progress/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { saveCaseProgress } from '@/lib/sheets';
 
 const ALLOWED_ORIGIN = process.env.BASE44_ORIGIN || '*';
@@ -39,7 +38,7 @@ type StepData =
   | Record<string, unknown>; // Fallback for unknown steps
 
 type CaseProgressRequest = {
-  caseId?: string; // Optional: if not provided, a new caseId will be generated. If provided, updates existing case (idempotent).
+  caseId: string; // Required: must reference an existing case.
   currentStep: string;
   stepData: StepData;
 };
@@ -172,13 +171,22 @@ function validateStepData(
  *
  * Idempotent endpoint for saving/updating case progress.
  * Users can resend the same step data multiple times (e.g., when going back and forth between pages).
- * If caseId is provided, updates existing case. If not provided, creates a new case.
+ * caseId is required and must reference an existing case.
  */
 export async function PUT(req: NextRequest) {
   try {
     const body: CaseProgressRequest = await req.json();
 
     // Validate request structure
+    if (!body.caseId || typeof body.caseId !== 'string') {
+      return withCors(
+        NextResponse.json(
+          { error: 'caseId is required and must be a string' },
+          { status: 400 },
+        ),
+      );
+    }
+
     if (!body.currentStep || typeof body.currentStep !== 'string') {
       return withCors(
         NextResponse.json(
@@ -205,9 +213,8 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // Generate caseId if not provided (for new cases)
-    // If caseId is provided, this will update the existing case (idempotent)
-    const caseId = body.caseId || crypto.randomUUID();
+    // Use provided caseId (must reference an existing case)
+    const caseId = body.caseId;
 
     // Save to Google Sheets
     let sheetsWarning: string | null = null;

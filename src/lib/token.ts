@@ -1,18 +1,18 @@
 import crypto from 'crypto';
 
-const TOKEN_SECRET = process.env.BILL_TOKEN_SECRET || 'dev-secret-change-me';
+const TOKEN_SECRET = process.env.CASE_TOKEN_SECRET || 'dev-secret-change-me';
 
-type BillTokenPayload = {
+type CaseTokenPayload = {
   caseId: string;
   iat: number;
 };
 
-export function signBillToken(caseId: string): string {
+export function signCaseToken(caseId: string): string {
   const header = Buffer.from(
     JSON.stringify({ alg: 'HS256', typ: 'JWT' }),
   ).toString('base64url');
 
-  const payload: BillTokenPayload = {
+  const payload: CaseTokenPayload = {
     caseId,
     iat: Math.floor(Date.now() / 1000),
   };
@@ -27,7 +27,7 @@ export function signBillToken(caseId: string): string {
   return `${data}.${signature}`;
 }
 
-export function verifyBillToken(token: string): BillTokenPayload {
+export function verifyCaseToken(token: string): CaseTokenPayload {
   const parts = token.split('.');
   if (parts.length !== 3) {
     throw new Error('Invalid token format');
@@ -45,7 +45,7 @@ export function verifyBillToken(token: string): BillTokenPayload {
 
   const decoded = JSON.parse(
     Buffer.from(payload, 'base64url').toString('utf8'),
-  ) as BillTokenPayload;
+  ) as CaseTokenPayload;
 
   return decoded;
 }

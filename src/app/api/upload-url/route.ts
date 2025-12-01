@@ -1,6 +1,6 @@
 // src/app/api/upload-url/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { signBillToken } from '@/lib/token';
+import { signCaseToken } from '@/lib/token';
 import { storage } from '@/lib/gcs'; // さっきの gcs.ts を使う
 
 const BUCKET_NAME = process.env.GCS_BUCKET_NAME;
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
     // Use provided caseId (must reference an existing case)
     const caseId = providedCaseId;
-    const objectPath = `bills/${caseId}/${fileName}`;
+    const objectPath = `case/${caseId}/${fileName}`;
     const bucketName = BUCKET_NAME;
 
     // 3) If caseId was provided from query parameter (checkDirectory=true), verify directory exists
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     if (checkDirectory && providedCaseId) {
       try {
         // Check if the directory exists by checking for meta.json or any file in the directory
-        const metaPath = `bills/${caseId}/meta.json`;
+        const metaPath = `case/${caseId}/meta.json`;
         const [exists] = await storage
           .bucket(bucketName)
           .file(metaPath)
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         if (!exists) {
           const [files] = await storage
             .bucket(bucketName)
-            .getFiles({ prefix: `bills/${caseId}/`, maxResults: 1 });
+            .getFiles({ prefix: `case/${caseId}/`, maxResults: 1 });
 
           if (files.length === 0) {
             return withCors(
@@ -139,14 +139,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const billToken = signBillToken(caseId);
+    const caseToken = signCaseToken(caseId);
     const gcsPath = `gs://${bucketName}/${objectPath}`;
 
     return withCors(
       NextResponse.json(
         {
           caseId,
-          billToken,
+          caseToken,
           signedUrl,
           gcsPath,
         },
