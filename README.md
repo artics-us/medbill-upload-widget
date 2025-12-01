@@ -1,4 +1,6 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MedBill Upload Widget
+
+This is a [Next.js](https://nextjs.org) project for a medical bill upload widget with Google Sheets integration.
 
 ## Getting Started
 
@@ -16,9 +18,27 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📚 Documentation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+All documentation is organized in the [`docs/`](./docs/) directory:
+
+- **[API Documentation](./docs/api/)** - API examples and testing guides
+- **[Setup Guides](./docs/setup/)** - Configuration and integration setup
+- **[Documentation Index](./docs/README.md)** - Complete documentation overview
+
+## 🧪 Testing
+
+Test scripts are available in the [`scripts/`](./scripts/) directory:
+
+```bash
+# Run the case-progress API test script
+./scripts/test-case-progress.sh
+```
+
+## 📖 Quick Links
+
+- [API Examples](./docs/api/CURL_EXAMPLES.md) - Complete curl examples for API testing
+- [Google Sheets Setup](./docs/setup/GOOGLE_SHEETS_SETUP.md) - Google Sheets API integration guide
 
 ## Learn More
 
