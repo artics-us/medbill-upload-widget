@@ -42,58 +42,86 @@ if (keyJson) {
 }
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+const SHEET_NAME = 'Leads'; // Sheet name in the spreadsheet
 
 /**
- * Get or create the header row in the spreadsheet
+ * Convert column index (0-based) to Google Sheets column letter (A, B, ..., Z, AA, AB, ...)
  */
-async function ensureHeaders() {
+function columnIndexToLetter(index: number): string {
+  let result = '';
+  index++;
+  while (index > 0) {
+    index--;
+    result = String.fromCharCode(65 + (index % 26)) + result;
+    index = Math.floor(index / 26);
+  }
+  return result;
+}
+
+/**
+ * Mapping from data keys to Google Sheets column names
+ * This allows flexible column positioning - columns can be in any order
+ */
+const DATA_COLUMN_MAP: Record<string, string> = {
+  caseId: 'Case ID',
+  email: 'Email',
+  phone: 'Phone',
+  hospitalName: 'Hospital name',
+  billType: 'Bill type',
+  balanceAmount: 'Balance amount',
+  inCollections: 'In collections',
+  // insuranceStatus is not mapped - not saved to Google Sheets
+  status: 'LP Status',
+  // Note: Some fields like createdAt, updatedAt, currentStep, etc.
+  // don't have direct mappings in the new spreadsheet structure
+  // They can be added to the mapping if needed
+};
+
+/**
+ * Get headers from the spreadsheet and create a column name to index mapping
+ */
+async function getColumnMapping(): Promise<Record<string, number>> {
   if (!sheets || !SPREADSHEET_ID) {
-    return;
+    return {};
   }
 
   try {
-    // Check if headers exist
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Sheet1!A1:Z1',
+      range: `${SHEET_NAME}!1:1`, // Get header row (row 1)
     });
 
-    const existingHeaders = response.data.values?.[0] || [];
+    const headers = response.data.values?.[0] || [];
+    const mapping: Record<string, number> = {};
 
-    // Define expected headers
-    const expectedHeaders = [
-      'Case ID',
-      'Created At',
-      'Updated At',
-      'Current Step',
-      'Hospital Name',
-      'Hospital ID',
-      'Bill Type',
-      'Balance Amount',
-      'In Collections',
-      'Insurance Status',
-      'Email',
-      'Phone',
-      'Agreed To Terms',
-      'Status',
-      // Upload-related columns
-      'Has Upload',
-      'Upload Count',
-      'Last Upload At',
-      'Last Case Token',
-    ];
+    headers.forEach((header: string, index: number) => {
+      if (header) {
+        mapping[header] = index;
+      }
+    });
 
-    // If headers don't exist or are different, create/update them
-    if (existingHeaders.length === 0 || existingHeaders[0] !== 'Case ID') {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'Sheet1!A1',
-        valueInputOption: 'RAW',
-        requestBody: {
-          values: [expectedHeaders],
-        },
-      });
-    }
+    return mapping;
+  } catch (error) {
+    console.error('Error getting column mapping:', error);
+    return {};
+  }
+}
+
+/**
+ * Get headers from the spreadsheet (no longer creates headers - assumes they already exist)
+ */
+async function getHeaders(): Promise<string[]> {
+  if (!sheets || !SPREADSHEET_ID) {
+    return [];
+  }
+
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_NAME}!1:1`, // Get header row (row 1)
+    });
+
+    return response.data.values?.[0] || [];
   } catch (error: unknown) {
     const err = error as { code?: number; message?: string };
 
@@ -101,7 +129,7 @@ async function ensureHeaders() {
     if (err?.code === 403 && err?.message?.includes('has not been used')) {
       const projectId = err?.message?.match(/project (\d+)/)?.[1];
       const errorMessage = `Google Sheets API is not enabled. Please enable it at: https://console.developers.google.com/apis/api/sheets.googleapis.com/overview?project=${projectId || 'YOUR_PROJECT_ID'}`;
-      console.error('Error ensuring headers:', errorMessage);
+      console.error('Error getting headers:', errorMessage);
       throw new Error(errorMessage);
     }
 
@@ -110,17 +138,18 @@ async function ensureHeaders() {
       const parsedKey = keyJson ? JSON.parse(keyJson) : null;
       const serviceAccountEmail = parsedKey?.client_email || 'YOUR_SERVICE_ACCOUNT_EMAIL';
       const errorMessage = `Permission denied: The service account "${serviceAccountEmail}" does not have access to the spreadsheet. Please share the spreadsheet with this email address and give it Editor permissions.`;
-      console.error('Error ensuring headers:', errorMessage);
+      console.error('Error getting headers:', errorMessage);
       throw new Error(errorMessage);
     }
 
-    console.error('Error ensuring headers:', error);
+    console.error('Error getting headers:', error);
     throw error;
   }
 }
 
 /**
  * Find the row index for a given caseId
+ * Uses the "Case ID" column dynamically (not hardcoded to column A)
  */
 async function findCaseRow(caseId: string): Promise<number | null> {
   if (!sheets || !SPREADSHEET_ID) {
@@ -128,9 +157,20 @@ async function findCaseRow(caseId: string): Promise<number | null> {
   }
 
   try {
+    const columnMap = await getColumnMapping();
+    const caseIdColumnIndex = columnMap['Case ID'];
+
+    if (caseIdColumnIndex === undefined) {
+      console.error('Case ID column not found in spreadsheet');
+      return null;
+    }
+
+    // Convert column index to letter
+    const columnLetter = columnIndexToLetter(caseIdColumnIndex);
+
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Sheet1!A:A', // Column A contains Case IDs
+      range: `${SHEET_NAME}!${columnLetter}:${columnLetter}`, // Dynamic column based on Case ID position
     });
 
     const rows = response.data.values || [];
@@ -149,6 +189,7 @@ async function findCaseRow(caseId: string): Promise<number | null> {
 
 /**
  * Append a new row to the spreadsheet
+ * Uses column mapping to place data in the correct columns
  */
 async function appendRow(data: Record<string, unknown>): Promise<void> {
   if (!sheets || !SPREADSHEET_ID) {
@@ -157,33 +198,35 @@ async function appendRow(data: Record<string, unknown>): Promise<void> {
   }
 
   try {
-    await ensureHeaders();
+    const headers = await getHeaders();
+    const columnMap = await getColumnMapping();
 
-    const row = [
-      data.caseId || '',
-      data.createdAt || new Date().toISOString(),
-      data.updatedAt || new Date().toISOString(),
-      data.currentStep || '',
-      data.hospitalName || '',
-      data.hospitalId || '',
-      data.billType || '',
-      data.balanceAmount || '',
-      data.inCollections || '',
-      data.insuranceStatus || '',
-      data.email || '',
-      data.phone || '',
-      data.agreedToTerms || '',
-      data.status || 'in_progress',
-      // Upload-related columns
-      data.hasUpload ?? '',
-      data.uploadCount ?? '',
-      data.lastUploadAt ?? '',
-      data.lastCaseToken ?? '',
-    ];
+    if (headers.length === 0) {
+      throw new Error('Spreadsheet headers not found. Please ensure the spreadsheet has headers.');
+    }
+
+    // Create a row array with the same length as headers, filled with empty strings
+    const row = new Array(headers.length).fill('');
+
+    // Map data to columns using the column mapping
+    for (const [dataKey, columnName] of Object.entries(DATA_COLUMN_MAP)) {
+      const columnIndex = columnMap[columnName];
+      if (columnIndex !== undefined && data[dataKey] !== undefined && data[dataKey] !== null && data[dataKey] !== '') {
+        let value = data[dataKey];
+        // Convert boolean to TRUE/FALSE for Google Sheets
+        if (typeof value === 'boolean') {
+          value = value ? 'TRUE' : 'FALSE';
+        }
+        row[columnIndex] = String(value);
+      }
+    }
+
+    // Calculate the last column letter based on headers length
+    const lastColumn = columnIndexToLetter(headers.length - 1);
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Sheet1!A:Z',
+      range: `${SHEET_NAME}!A:${lastColumn}`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [row],
@@ -216,6 +259,7 @@ async function appendRow(data: Record<string, unknown>): Promise<void> {
 
 /**
  * Update an existing row in the spreadsheet
+ * Uses column mapping to update only the relevant columns
  */
 async function updateRow(
   rowNumber: number,
@@ -227,66 +271,45 @@ async function updateRow(
   }
 
   try {
-    // Get current row data
+    const headers = await getHeaders();
+    const columnMap = await getColumnMapping();
+
+    if (headers.length === 0) {
+      throw new Error('Spreadsheet headers not found. Please ensure the spreadsheet has headers.');
+    }
+
+    // Get current row data (get all columns to preserve existing values)
+    const lastColumn = columnIndexToLetter(headers.length - 1);
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Sheet1!A${rowNumber}:R${rowNumber}`,
+      range: `${SHEET_NAME}!A${rowNumber}:${lastColumn}${rowNumber}`,
     });
 
     const currentRow = response.data.values?.[0] || [];
-    const headers = [
-      'caseId',
-      'createdAt',
-      'updatedAt',
-      'currentStep',
-      'hospitalName',
-      'hospitalId',
-      'billType',
-      'balanceAmount',
-      'inCollections',
-      'insuranceStatus',
-      'email',
-      'phone',
-      'agreedToTerms',
-      'status',
-      // Upload-related columns
-      'hasUpload',
-      'uploadCount',
-      'lastUploadAt',
-      'lastCaseToken',
-    ];
 
-    // Merge existing data with new data
-    const mergedData: Record<string, unknown> = {};
-    headers.forEach((header, index) => {
-      mergedData[header] = currentRow[index] || '';
-    });
+    // Create a new row array with the same length as headers, filled with existing values
+    const row = new Array(headers.length).fill('');
+    for (let i = 0; i < currentRow.length && i < headers.length; i++) {
+      row[i] = currentRow[i] || '';
+    }
 
-    // Update with new data (preserve existing values if not provided)
-    Object.keys(data).forEach((key) => {
-      if (data[key] !== undefined && data[key] !== null && data[key] !== '') {
-        mergedData[key] = data[key];
+    // Update only the columns that have data in the mapping
+    for (const [dataKey, columnName] of Object.entries(DATA_COLUMN_MAP)) {
+      const columnIndex = columnMap[columnName];
+      if (columnIndex !== undefined && data[dataKey] !== undefined && data[dataKey] !== null && data[dataKey] !== '') {
+        let value = data[dataKey];
+        // Convert boolean to TRUE/FALSE for Google Sheets
+        if (typeof value === 'boolean') {
+          value = value ? 'TRUE' : 'FALSE';
+        }
+        row[columnIndex] = String(value);
       }
-    });
+    }
 
-    // Always update updatedAt
-    mergedData.updatedAt = new Date().toISOString();
-
-    // Build the row array
-    const row = headers.map((header) => {
-      const value = mergedData[header];
-      if (value === null || value === undefined) {
-        return '';
-      }
-      if (typeof value === 'boolean') {
-        return value ? 'TRUE' : 'FALSE';
-      }
-      return String(value);
-    });
-
+    // Update the row
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Sheet1!A${rowNumber}:R${rowNumber}`,
+      range: `${SHEET_NAME}!A${rowNumber}:${lastColumn}${rowNumber}`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [row],
@@ -331,8 +354,6 @@ export async function saveCaseProgress(
   }
 
   try {
-    await ensureHeaders();
-
     // Find if case already exists
     const existingRow = await findCaseRow(caseId);
 
@@ -359,7 +380,7 @@ export async function saveCaseProgress(
         break;
 
       case 'insurance':
-        dataToSave.insuranceStatus = stepData.insuranceStatus || '';
+        // insuranceStatus is not saved to Google Sheets
         break;
 
       case 'contact':
@@ -397,8 +418,7 @@ export async function saveCaseProgress(
           dataToSave.balanceAmount = stepData.balanceAmount;
         if (stepData.inCollections !== undefined)
           dataToSave.inCollections = stepData.inCollections;
-        if (stepData.insuranceStatus)
-          dataToSave.insuranceStatus = stepData.insuranceStatus;
+        // insuranceStatus is not saved to Google Sheets
         if (stepData.agreedToTerms !== undefined)
           dataToSave.agreedToTerms = stepData.agreedToTerms;
     }

@@ -10,18 +10,21 @@ echo "Testing PUT /api/case-progress endpoint"
 echo "========================================"
 echo ""
 
-# Test 1: Create new case - Hospital step
+# Test 1: Create new case - Hospital step (with caseId)
 echo "Test 1: Create new case - Hospital step"
 echo "----------------------------------------"
+# Generate a test case ID
+TEST_CASE_ID="test-$(date +%s)-$(shuf -i 1000-9999 -n 1)"
 RESPONSE=$(curl -s -X PUT "$ENDPOINT" \
   -H "Content-Type: application/json" \
-  -d '{
-    "currentStep": "hospital",
-    "stepData": {
-      "hospitalName": "St. Jude Medical Center",
-      "hospitalId": "123"
+  -d "{
+    \"caseId\": \"$TEST_CASE_ID\",
+    \"currentStep\": \"hospital\",
+    \"stepData\": {
+      \"hospitalName\": \"St. Jude Medical Center\",
+      \"hospitalId\": \"123\"
     }
-  }')
+  }")
 
 CASE_ID_1=$(echo "$RESPONSE" | jq -r '.caseId')
 
