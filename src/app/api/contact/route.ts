@@ -48,9 +48,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const billId = crypto.randomUUID();
+    const caseId = crypto.randomUUID();
     const payload = {
-      billId,
+      caseId,
       contact: {
         hospital: hospital || null,
         billType: billType || null,
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    const objectPath = `bills/${billId}/contact.json`;
+    const objectPath = `bills/${caseId}/contact.json`;
     const file = storage.bucket(BUCKET_NAME).file(objectPath);
 
     await file.save(JSON.stringify(payload, null, 2), {
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       NextResponse.json(
         {
           ok: true,
-          billId,
+          caseId,
           gcsPath: `gs://${BUCKET_NAME}/${objectPath}`,
         },
         { status: 200 },

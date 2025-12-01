@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const {
-      billId,
+      caseId,
       billToken,
       hospital,
       billType,
@@ -61,10 +61,10 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // Basic validation for required fields
-    if (!billId || !email) {
+    if (!caseId || !email) {
       return withCors(
         NextResponse.json(
-          { error: 'billId and email are required.' },
+          { error: 'caseId and email are required.' },
           { status: 400 },
         ),
       );
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     // 1) Save case meta JSON to GCS
     //
     const payload = {
-      billId,
+      caseId,
       billToken: billToken || null,
       patient: {
         email,
@@ -95,9 +95,9 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    // Store under the same billId directory as the uploaded file:
-    // e.g. gs://<bucket>/bills/<billId>/meta.json
-    const objectPath = `bills/${billId}/meta.json`;
+    // Store under the same caseId directory as the uploaded file:
+    // e.g. gs://<bucket>/bills/<caseId>/meta.json
+    const objectPath = `bills/${caseId}/meta.json`;
 
     const file = storage.bucket(BUCKET_NAME).file(objectPath);
 
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               attributes: {
                 CONSENT_STATUS: 'pending',
-                BILL_ID: billId,
+                CASE_ID: caseId,
               },
               includeListIds: [BREVO_INCLUDE_LIST_ID],
               excludeListIds: [BREVO_EXCLUDE_LIST_ID],
@@ -163,10 +163,11 @@ export async function POST(req: NextRequest) {
         } else {
           doiStatus = 'sent';
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error calling Brevo DOI API:', err);
         doiStatus = 'failed';
-        doiError = err?.message || 'Unknown Brevo error';
+        doiError =
+          err instanceof Error ? err.message : 'Unknown Brevo error';
       }
     }
 

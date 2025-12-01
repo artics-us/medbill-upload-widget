@@ -3,17 +3,17 @@ import crypto from 'crypto';
 const TOKEN_SECRET = process.env.BILL_TOKEN_SECRET || 'dev-secret-change-me';
 
 type BillTokenPayload = {
-  billId: string;
+  caseId: string;
   iat: number;
 };
 
-export function signBillToken(billId: string): string {
+export function signBillToken(caseId: string): string {
   const header = Buffer.from(
     JSON.stringify({ alg: 'HS256', typ: 'JWT' }),
   ).toString('base64url');
 
   const payload: BillTokenPayload = {
-    billId,
+    caseId,
     iat: Math.floor(Date.now() / 1000),
   };
   const payloadStr = Buffer.from(JSON.stringify(payload)).toString('base64url');

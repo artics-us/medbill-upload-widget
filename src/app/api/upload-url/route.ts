@@ -20,7 +20,7 @@ export async function OPTIONS() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { fileName, mimeType, size, billId: providedBillId, checkDirectory } = await req.json();
+    const { fileName, mimeType, size, caseId: providedCaseId, checkDirectory } = await req.json();
 
     // 1) Payload validation
     if (!fileName || !mimeType || !size) {
@@ -49,17 +49,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Use provided billId or generate a new one
-    const billId = providedBillId || crypto.randomUUID();
-    const objectPath = `bills/${billId}/${fileName}`;
+    // Use provided caseId or generate a new one
+    const caseId = providedCaseId || crypto.randomUUID();
+    const objectPath = `bills/${caseId}/${fileName}`;
     const bucketName = BUCKET_NAME;
 
-    // 3) If billId was provided from query parameter (checkDirectory=true), verify directory exists
-    // If it's a new billId or from existing upload, skip the check (directory will be created or already exists)
-    if (checkDirectory && providedBillId) {
+    // 3) If caseId was provided from query parameter (checkDirectory=true), verify directory exists
+    // If it's a new caseId or from existing upload, skip the check (directory will be created or already exists)
+    if (checkDirectory && providedCaseId) {
       try {
         // Check if the directory exists by checking for meta.json or any file in the directory
-        const metaPath = `bills/${billId}/meta.json`;
+        const metaPath = `bills/${caseId}/meta.json`;
         const [exists] = await storage
           .bucket(bucketName)
           .file(metaPath)
@@ -69,13 +69,13 @@ export async function POST(req: NextRequest) {
         if (!exists) {
           const [files] = await storage
             .bucket(bucketName)
-            .getFiles({ prefix: `bills/${billId}/`, maxResults: 1 });
+            .getFiles({ prefix: `bills/${caseId}/`, maxResults: 1 });
 
           if (files.length === 0) {
             return withCors(
               NextResponse.json(
                 {
-                  error: `Directory for bill_id "${billId}" does not exist.`,
+                  error: `Directory for case_id "${caseId}" does not exist.`,
                 },
                 { status: 404 },
               ),
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
           NextResponse.json(
             {
               error:
-                'Failed to verify directory existence. Please check the bill_id.',
+                'Failed to verify directory existence. Please check the case_id.',
             },
             { status: 500 },
           ),
@@ -123,13 +123,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const billToken = signBillToken(billId);
+    const billToken = signBillToken(caseId);
     const gcsPath = `gs://${bucketName}/${objectPath}`;
 
     return withCors(
       NextResponse.json(
         {
-          billId,
+          caseId,
           billToken,
           signedUrl,
           gcsPath,

@@ -8,7 +8,7 @@ const BASE44_ORIGIN = process.env.NEXT_PUBLIC_BASE44_ORIGIN || '';
 
 type UploadDoneMessage = {
   type: 'UPLOAD_DONE';
-  billId: string;
+  caseId: string;
   billToken: string;
 };
 
@@ -22,7 +22,7 @@ type FileUploadStatus = {
   status: 'pending' | 'uploading' | 'success' | 'error';
   progress: number;
   error?: string;
-  billId?: string;
+  caseId?: string;
   billToken?: string;
 };
 
@@ -136,7 +136,7 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
   const uploadSingleFile = async (
     fileStatus: FileUploadStatus,
     index: number,
-    billId: string,
+    caseIdForUpload: string,
     isFromQueryParam: boolean,
   ): Promise<{ billToken: string } | null> => {
     const { file } = fileStatus;
@@ -157,8 +157,8 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
           fileName: file.name,
           mimeType: file.type || 'application/octet-stream',
           size: file.size,
-          billId, // Use the shared billId
-          checkDirectory: isFromQueryParam, // Only check directory if billId came from query param
+          caseId: caseIdForUpload, // Use the shared caseId
+          checkDirectory: isFromQueryParam, // Only check directory if caseId came from query param
         }),
       });
 
@@ -170,7 +170,7 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
 
       const { signedUrl, gcsPath, billToken } = await uploadUrlRes.json();
 
-      console.log('Got signed URL:', { signedUrl, gcsPath, billId });
+      console.log('Got signed URL:', { signedUrl, gcsPath, caseId: caseIdForUpload });
 
       // Update progress
       setFiles((prev) => {
@@ -202,7 +202,7 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
           ...updated[index],
           status: 'success',
           progress: 100,
-          billId,
+          caseId: caseIdForUpload,
           billToken,
         };
         return updated;
@@ -249,18 +249,18 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
     setError(null);
     setSuccessMessage(null);
 
-    // Use case_id from query parameter if provided, otherwise reuse existing billId or generate a new one
-    const existingSuccessFile = files.find((f) => f.status === 'success' && f.billId);
+    // Use case_id from query parameter if provided, otherwise reuse existing caseId or generate a new one
+    const existingSuccessFile = files.find((f) => f.status === 'success' && f.caseId);
     // If caseId (from query param) exists, use it (will check directory existence in backend)
-    // If existingSuccessFile has billId, reuse it (directory already exists)
+    // If existingSuccessFile has caseId, reuse it (directory already exists)
     // Otherwise, generate a new one (new directory will be created, no check needed)
-    const billId =
+    const resolvedCaseId =
       caseId ||
-      existingSuccessFile?.billId ||
+      existingSuccessFile?.caseId ||
       (typeof window !== 'undefined' && window.crypto
         ? window.crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`);
-    // Only check directory existence if billId came from query param (caseId)
+    // Only check directory existence if caseId came from query param
     // If it's from existing file or newly generated, directory will exist or will be created
     const isFromQueryParam = !!caseId;
 
@@ -268,10 +268,10 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
       // Store the count of pending files before upload
       const pendingCount = pendingFiles.length;
 
-      // Upload only pending files in parallel using the same billId
+      // Upload only pending files in parallel using the same caseId
       const uploadPromises = pendingFiles.map((fileStatus) => {
         const index = files.indexOf(fileStatus);
-        return uploadSingleFile(fileStatus, index, billId, isFromQueryParam);
+        return uploadSingleFile(fileStatus, index, resolvedCaseId, isFromQueryParam);
       });
 
       const uploadResults = await Promise.all(uploadPromises);
@@ -296,7 +296,7 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
           const targetOrigin = getTargetOrigin();
           const msg: UploadDoneMessage = {
             type: 'UPLOAD_DONE',
-            billId,
+            caseId: resolvedCaseId,
             billToken: newBillToken,
           };
           window.parent.postMessage(msg, targetOrigin);
@@ -493,7 +493,7 @@ export default function UploadWidgetPage() {
 
 function UploadWidgetWithParams() {
   const searchParams = useSearchParams();
-  const caseId = searchParams.get('bill_id');
+  const caseId = searchParams.get('case_id');
 
   return <UploadWidgetContent caseId={caseId} />;
 }
