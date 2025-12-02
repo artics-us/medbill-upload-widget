@@ -5,6 +5,7 @@ const ALLOWED_ORIGIN = process.env.BASE44_ORIGIN || '*';
 const MIXPANEL_TOKEN = process.env.MIXPANEL_TOKEN;
 
 // List of PII/PHI fields that should never be sent to Mixpanel (HIPAA compliance)
+// Note: Mixpanel standard properties ($city, $country_code, etc.) are allowed
 const FORBIDDEN_PROPERTIES = [
   'email',
   'phone',
@@ -21,17 +22,25 @@ const FORBIDDEN_PROPERTIES = [
   'lastName',
   'address',
   'zipCode',
-  'city',
-  'state',
+  // Note: 'city' and 'state' are removed from forbidden list
+  // as they can be geographic data (not PII) when used for analytics
+  // Mixpanel standard properties like $city, $country_code are always allowed
 ];
 
 /**
  * Remove PII/PHI from properties object to ensure HIPAA compliance
+ * Note: Mixpanel standard properties (starting with $) are always allowed
  */
 function sanitizeProperties(properties: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(properties)) {
+    // Always allow Mixpanel standard properties (starting with $)
+    if (key.startsWith('$')) {
+      sanitized[key] = value;
+      continue;
+    }
+
     // Skip forbidden properties
     if (FORBIDDEN_PROPERTIES.includes(key)) {
       console.warn(`Skipping forbidden property: ${key}`);
@@ -152,15 +161,18 @@ export async function POST(req: NextRequest) {
     const requestMetadata = getRequestMetadata(req);
 
     // Prepare Mixpanel event data
+    // Priority: client properties > server metadata
+    // This ensures client-sent properties (like $city) take precedence over server-detected ones
     const eventData = {
       event,
       properties: {
         token: MIXPANEL_TOKEN,
         distinct_id: distinct_id || 'anonymous',
         time: Math.floor(Date.now() / 1000), // Unix timestamp in seconds
-        // Add geographic and device information
+        // Add server-detected geographic and device information first
         ...requestMetadata,
-        // Add sanitized properties from client (these can override metadata if needed)
+        // Add sanitized properties from client (these override server metadata if provided)
+        // This ensures properties sent from frontend (like $city, $country_code, etc.) are included
         ...sanitizedProperties,
       },
     };
