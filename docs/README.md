@@ -7,7 +7,8 @@ This directory contains all project documentation organized by category.
 ```
 docs/
 ├── api/              # API documentation and examples
-│   ├── MIXPANEL_TRACKING.md  # フロントエンド実装ガイド
+│   ├── CASE_PROGRESS_API.md   # Case Progress API実装ガイド
+│   ├── MIXPANEL_TRACKING.md   # Mixpanelトラッキング実装ガイド
 │   └── CURL_EXAMPLES.md
 ├── setup/            # Setup and configuration guides
 │   └── GOOGLE_SHEETS_SETUP.md
@@ -18,6 +19,7 @@ docs/
 
 ### API Documentation
 
+- **[Case Progress API Guide](./api/CASE_PROGRESS_API.md)** - フロントエンドエンジニア向けのCase Progress API実装ガイド ⭐
 - **[Mixpanel Tracking Guide](./api/MIXPANEL_TRACKING.md)** - フロントエンドエンジニア向けのMixpanelトラッキング実装ガイド
 - **[CURL Examples](./api/CURL_EXAMPLES.md)** - Complete curl examples for testing the `/api/case-progress` and `/api/mixpanel/track` endpoints
 
@@ -34,7 +36,8 @@ Test scripts are located in the `scripts/` directory:
 ## 📖 Quick Links
 
 - [Main README](../README.md) - Project overview and getting started
-- [Mixpanel Tracking Guide](./api/MIXPANEL_TRACKING.md) - **フロントエンドエンジニア向け実装ガイド** ⭐
+- [Case Progress API Guide](./api/CASE_PROGRESS_API.md) - **フロントエンドエンジニア向け実装ガイド** ⭐
+- [Mixpanel Tracking Guide](./api/MIXPANEL_TRACKING.md) - フロントエンドエンジニア向けのMixpanelトラッキング実装ガイド
 - [API Examples](./api/CURL_EXAMPLES.md) - API testing examples (includes `/api/case-progress` and `/api/mixpanel/track`)
 - [Google Sheets Setup](./setup/GOOGLE_SHEETS_SETUP.md) - Google Sheets integration guide
 

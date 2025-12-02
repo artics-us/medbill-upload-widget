@@ -73,7 +73,10 @@ const DATA_COLUMN_MAP: Record<string, string> = {
   inCollections: 'In collections',
   insuranceStatus: 'Insurance status',
   gcsFileUrl: 'GCS file URL',
-  currentStep: 'Current step',
+  currentStep: 'Last Done Page',
+  city: 'State',
+  utm_source: 'UTM Source',
+  utm_campaign: 'UTM Campaign',
   // Note: Some fields like createdAt, updatedAt, status, etc.
   // don't have direct mappings in the new spreadsheet structure
   // They can be added to the mapping if needed
@@ -355,6 +358,7 @@ export async function saveCaseProgress(
   caseId: string,
   currentStep: string,
   stepData: Record<string, unknown>,
+  utmParams?: { utm_source?: string; utm_campaign?: string },
 ): Promise<void> {
   if (!sheets || !SPREADSHEET_ID) {
     console.warn('Google Sheets not configured, skipping save');
@@ -371,11 +375,25 @@ export async function saveCaseProgress(
       currentStep,
     };
 
+    // Add UTM parameters only when creating new row (not when updating existing row)
+    if (!existingRow && utmParams) {
+      if (utmParams.utm_source) {
+        dataToSave.utm_source = utmParams.utm_source;
+      }
+      if (utmParams.utm_campaign) {
+        dataToSave.utm_campaign = utmParams.utm_campaign;
+      }
+    }
+
     // Map stepData to spreadsheet columns based on currentStep
     switch (currentStep) {
       case 'hospital':
         dataToSave.hospitalName = stepData.hospitalName || '';
         dataToSave.hospitalId = stepData.hospitalId || '';
+        // Save city to State column if provided
+        if (stepData.city) {
+          dataToSave.city = stepData.city;
+        }
         break;
 
       case 'billType':

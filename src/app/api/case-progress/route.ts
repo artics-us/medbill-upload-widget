@@ -8,6 +8,7 @@ const ALLOWED_ORIGIN = process.env.BASE44_ORIGIN || '*';
 type HospitalStepData = {
   hospitalName: string;
   hospitalId?: string | null;
+  city?: string | null;
 };
 
 type BillTypeStepData = {
@@ -216,10 +217,37 @@ export async function PUT(req: NextRequest) {
     // Use provided caseId (must reference an existing case)
     const caseId = body.caseId;
 
+    // For hospital step, get city from request if not provided in stepData
+    let stepDataWithCity = { ...body.stepData };
+    if (body.currentStep === 'hospital') {
+      const hospitalData = stepDataWithCity as HospitalStepData;
+      // If city is not provided in stepData, try to get it from request geo
+      if (!hospitalData.city) {
+        const geo = (req as unknown as { geo?: { city?: string } }).geo;
+        if (geo?.city) {
+          hospitalData.city = geo.city;
+          stepDataWithCity = hospitalData;
+        }
+      }
+    }
+
+    // Get UTM parameters from query string
+    const utm_source = req.nextUrl.searchParams.get('utm_source') || undefined;
+    const utm_campaign = req.nextUrl.searchParams.get('utm_campaign') || undefined;
+    const utmParams =
+      utm_source || utm_campaign
+        ? { utm_source, utm_campaign }
+        : undefined;
+
     // Save to Google Sheets
     let sheetsWarning: string | null = null;
     try {
-      await saveCaseProgress(caseId, body.currentStep, body.stepData);
+      await saveCaseProgress(
+        caseId,
+        body.currentStep,
+        stepDataWithCity,
+        utmParams,
+      );
     } catch (sheetsError: unknown) {
       console.error('Error saving to Google Sheets:', sheetsError);
 
