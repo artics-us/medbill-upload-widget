@@ -358,7 +358,6 @@ export async function saveCaseProgress(
   caseId: string,
   currentStep: string,
   stepData: Record<string, unknown>,
-  utmParams?: { utm_source?: string; utm_campaign?: string },
 ): Promise<void> {
   if (!sheets || !SPREADSHEET_ID) {
     console.warn('Google Sheets not configured, skipping save');
@@ -375,16 +374,6 @@ export async function saveCaseProgress(
       currentStep,
     };
 
-    // Add UTM parameters only when creating new row (not when updating existing row)
-    if (!existingRow && utmParams) {
-      if (utmParams.utm_source) {
-        dataToSave.utm_source = utmParams.utm_source;
-      }
-      if (utmParams.utm_campaign) {
-        dataToSave.utm_campaign = utmParams.utm_campaign;
-      }
-    }
-
     // Map stepData to spreadsheet columns based on currentStep
     switch (currentStep) {
       case 'hospital':
@@ -393,6 +382,15 @@ export async function saveCaseProgress(
         // Save city to State column if provided
         if (stepData.city) {
           dataToSave.city = stepData.city;
+        }
+        // Save UTM parameters only when creating new row (not when updating existing row)
+        if (!existingRow) {
+          if (stepData.utm_source) {
+            dataToSave.utm_source = stepData.utm_source;
+          }
+          if (stepData.utm_campaign) {
+            dataToSave.utm_campaign = stepData.utm_campaign;
+          }
         }
         break;
 

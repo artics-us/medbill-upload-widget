@@ -9,12 +9,15 @@
 ### 基本的な使用方法
 
 ```typescript
+// caseIdを生成（新規ケースの場合）
+const caseId = crypto.randomUUID(); // または window.crypto.randomUUID()
+
 // ホスピタル名を送信
 await fetch("/api/case-progress", {
   method: "PUT",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
-    caseId: "your-case-id",
+    caseId: caseId, // 必須: フロントエンドで生成
     currentStep: "hospital",
     stepData: {
       hospitalName: "Hospital Name",
@@ -36,32 +39,47 @@ PUT /api/case-progress
 
 ```typescript
 {
-  caseId: string; // 必須: ケースID
+  caseId: string; // 必須: ケースID（フロントエンドで生成、UUID推奨）
   currentStep: string; // 必須: 現在のステップ
   stepData: object; // 必須: ステップデータ
 }
 ```
 
-### クエリパラメータ（オプション）
+**重要**: `caseId`は必須です。新規ケース作成時は、フロントエンド側で UUID を生成して送信してください。
 
-以下のクエリパラメータを指定すると、Google Sheets の UTM カラムに保存されます：
+```typescript
+// caseIdの生成例
+const caseId = crypto.randomUUID(); // ブラウザ環境
+// または
+const caseId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`; // フォールバック
+```
 
-- `utm_source`: UTM ソース（例: `google`, `facebook`）
-- `utm_campaign`: UTM キャンペーン（例: `summer2024`, `promo2024`）
+### stepData の形式（Hospital Step の場合）
 
-**注意**: UTM パラメータは新規ケース作成時のみ保存されます。既存ケースの更新時は無視されます。
+Hospital Step では、以下のフィールドを `stepData` に含めることができます：
+
+- `hospitalName`: string（必須）- 病院名
+- `hospitalId`: string | null（オプション）- 病院 ID
+- `city`: string | null（オプション）- 都市名（Google Sheets の `State` カラムに保存）
+- `utm_source`: string | null（オプション）- UTM ソース（Google Sheets の `UTM Source` カラムに保存）
+- `utm_campaign`: string | null（オプション）- UTM キャンペーン（Google Sheets の `UTM Campaign` カラムに保存）
+
+**注意**: UTM パラメータ（`utm_source`, `utm_campaign`）は `hospital` ステップの時のみ送信でき、新規ケース作成時のみ保存されます。既存ケースの更新時は無視されます。
 
 ## 📦 ステップ別の実装例
 
 ### 1. Hospital Step（病院ステップ）
 
 ```typescript
+// caseIdを生成（新規ケースの場合）
+const caseId = crypto.randomUUID();
+
 // 基本的な送信
 await fetch("/api/case-progress", {
   method: "PUT",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
-    caseId: "case-123",
+    caseId: caseId, // 必須: フロントエンドで生成
     currentStep: "hospital",
     stepData: {
       hospitalName: "St. Jude Medical Center",
@@ -70,12 +88,15 @@ await fetch("/api/case-progress", {
   }),
 });
 
+// caseIdを生成
+const caseId = crypto.randomUUID();
+
 // cityを含む送信（推奨）
 await fetch("/api/case-progress", {
   method: "PUT",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
-    caseId: "case-123",
+    caseId: caseId, // 必須: フロントエンドで生成
     currentStep: "hospital",
     stepData: {
       hospitalName: "St. Jude Medical Center",
@@ -84,9 +105,29 @@ await fetch("/api/case-progress", {
     },
   }),
 });
+
+// city + UTMパラメータを含む送信（推奨）
+await fetch("/api/case-progress", {
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    caseId: caseId, // 必須: フロントエンドで生成
+    currentStep: "hospital",
+    stepData: {
+      hospitalName: "St. Jude Medical Center",
+      hospitalId: "123",
+      city: "Tokyo", // ← Google SheetsのStateカラムに保存
+      utm_source: "google", // ← Google SheetsのUTM Sourceカラムに保存
+      utm_campaign: "summer2024", // ← Google SheetsのUTM Campaignカラムに保存
+    },
+  }),
+});
 ```
 
-**重要**: `city`を送信すると、Google Sheets の`State`カラムに保存されます。送信しない場合、サーバーサイドで Vercel の geo 情報から自動取得を試みます。
+**重要**:
+
+- `city`を送信すると、Google Sheets の`State`カラムに保存されます。送信しない場合、サーバーサイドで Vercel の geo 情報から自動取得を試みます。
+- `utm_source`と`utm_campaign`は`hospital`ステップの時のみ送信でき、新規ケース作成時のみ保存されます。
 
 ### 2. Bill Type Step（請求タイプステップ）
 
@@ -157,48 +198,11 @@ await fetch("/api/case-progress", {
 
 ## 🎯 UTM パラメータの送信
 
-UTM パラメータを送信するには、クエリパラメータとして追加します：
+UTM パラメータを送信するには、`hospital`ステップの`stepData`に含めます：
 
 ```typescript
 // UTMパラメータ付きで送信
-const utmSource = "google";
-const utmCampaign = "summer2024";
-
-await fetch(
-  `/api/case-progress?utm_source=${utmSource}&utm_campaign=${utmCampaign}`,
-  {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      caseId: "case-123",
-      currentStep: "hospital",
-      stepData: {
-        hospitalName: "Hospital Name",
-        city: "Tokyo",
-      },
-    }),
-  }
-);
-```
-
-### URL から UTM パラメータを取得する例
-
-```typescript
-// 現在のURLからUTMパラメータを取得
-const urlParams = new URLSearchParams(window.location.search);
-const utmSource = urlParams.get("utm_source");
-const utmCampaign = urlParams.get("utm_campaign");
-
-// UTMパラメータがある場合のみクエリに追加
-let apiUrl = "/api/case-progress";
-const queryParams = new URLSearchParams();
-if (utmSource) queryParams.append("utm_source", utmSource);
-if (utmCampaign) queryParams.append("utm_campaign", utmCampaign);
-if (queryParams.toString()) {
-  apiUrl += `?${queryParams.toString()}`;
-}
-
-await fetch(apiUrl, {
+await fetch("/api/case-progress", {
   method: "PUT",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
@@ -207,7 +211,41 @@ await fetch(apiUrl, {
     stepData: {
       hospitalName: "Hospital Name",
       city: "Tokyo",
+      utm_source: "google", // ← stepDataに含める
+      utm_campaign: "summer2024", // ← stepDataに含める
     },
+  }),
+});
+```
+
+### URL から UTM パラメータを取得する例
+
+```typescript
+// 現在のURLからUTMパラメータを取得してstepDataに含める
+const urlParams = new URLSearchParams(window.location.search);
+const utmSource = urlParams.get("utm_source");
+const utmCampaign = urlParams.get("utm_campaign");
+
+const stepData: Record<string, unknown> = {
+  hospitalName: "Hospital Name",
+  city: "Tokyo",
+};
+
+// UTMパラメータがある場合のみstepDataに追加
+if (utmSource) {
+  stepData.utm_source = utmSource;
+}
+if (utmCampaign) {
+  stepData.utm_campaign = utmCampaign;
+}
+
+await fetch("/api/case-progress", {
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    caseId: "case-123",
+    currentStep: "hospital",
+    stepData,
   }),
 });
 ```
@@ -220,35 +258,31 @@ await fetch(apiUrl, {
 // src/hooks/useCaseProgress.ts
 import { useCallback } from "react";
 
+// caseIdを生成するヘルパー関数
+function generateCaseId(): string {
+  if (typeof window !== "undefined" && window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  // フォールバック
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+}
+
 export function useCaseProgress() {
   const saveProgress = useCallback(
     async (
-      caseId: string,
+      caseId: string | null, // nullの場合は新規生成
       currentStep: string,
-      stepData: Record<string, unknown>,
-      utmParams?: { utm_source?: string; utm_campaign?: string }
+      stepData: Record<string, unknown>
     ) => {
       try {
-        // UTMパラメータをクエリに追加
-        let url = "/api/case-progress";
-        if (utmParams) {
-          const queryParams = new URLSearchParams();
-          if (utmParams.utm_source) {
-            queryParams.append("utm_source", utmParams.utm_source);
-          }
-          if (utmParams.utm_campaign) {
-            queryParams.append("utm_campaign", utmParams.utm_campaign);
-          }
-          if (queryParams.toString()) {
-            url += `?${queryParams.toString()}`;
-          }
-        }
+        // caseIdが提供されていない場合は生成
+        const finalCaseId = caseId || generateCaseId();
 
-        const response = await fetch(url, {
+        const response = await fetch("/api/case-progress", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            caseId,
+            caseId: finalCaseId,
             currentStep,
             stepData,
           }),
@@ -278,39 +312,39 @@ export function useCaseProgress() {
 import { useState } from "react";
 import { useCaseProgress } from "@/hooks/useCaseProgress";
 
-export function HospitalForm({ caseId }: { caseId: string }) {
+export function HospitalForm({ caseId }: { caseId: string | null }) {
   const [hospitalName, setHospitalName] = useState("");
   const [city, setCity] = useState("");
   const { saveProgress } = useCaseProgress();
 
-  // URLからUTMパラメータを取得
-  const getUTMParams = () => {
-    if (typeof window === "undefined") return undefined;
-    const params = new URLSearchParams(window.location.search);
-    const utm_source = params.get("utm_source");
-    const utm_campaign = params.get("utm_campaign");
-    if (utm_source || utm_campaign) {
-      return {
-        utm_source: utm_source || undefined,
-        utm_campaign: utm_campaign || undefined,
-      };
+  // URLからUTMパラメータを取得してstepDataに含める
+  const getStepData = () => {
+    const stepData: Record<string, unknown> = {
+      hospitalName,
+      city, // cityを送信
+    };
+
+    // URLからUTMパラメータを取得
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const utm_source = params.get("utm_source");
+      const utm_campaign = params.get("utm_campaign");
+      if (utm_source) {
+        stepData.utm_source = utm_source;
+      }
+      if (utm_campaign) {
+        stepData.utm_campaign = utm_campaign;
+      }
     }
-    return undefined;
+
+    return stepData;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      await saveProgress(
-        caseId,
-        "hospital",
-        {
-          hospitalName,
-          city, // cityを送信
-        },
-        getUTMParams() // UTMパラメータを送信
-      );
+      await saveProgress(caseId, "hospital", getStepData());
 
       // 成功時の処理
       console.log("Hospital data saved successfully");
@@ -369,9 +403,10 @@ export function HospitalForm({ caseId }: { caseId: string }) {
 
 ### UTM パラメータについて
 
-- UTM パラメータは**新規ケース作成時のみ**保存されます
+- UTM パラメータ（`utm_source`, `utm_campaign`）は`hospital`ステップの時のみ送信できます
+- `stepData`の中に含めて送信します（クエリパラメータではありません）
+- **新規ケース作成時のみ**保存されます
 - 既存ケースの更新時は、UTM パラメータがあっても無視されます
-- クエリパラメータとして送信する必要があります（リクエストボディには含めません）
 
 ### city パラメータについて
 

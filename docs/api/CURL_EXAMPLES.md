@@ -7,18 +7,54 @@ BASE_URL="http://localhost:3000"  # For local development
 # BASE_URL="https://your-production-domain.com"  # For production
 ```
 
-## Test 1: Create New Case - Hospital Step
+## Test 1: Create New Case - Hospital Step (Basic)
+
+**重要**: `caseId`は必須です。テストでは UUID を生成して使用してください。
 
 ```bash
+# caseIdを生成（例: UUID v4形式）
+CASE_ID=$(uuidgen 2>/dev/null || echo "test-$(date +%s)-$(shuf -i 1000-9999 -n 1)")
+
 curl -X PUT "${BASE_URL}/api/case-progress" \
   -H "Content-Type: application/json" \
-  -d '{
-    "currentStep": "hospital",
-    "stepData": {
-      "hospitalName": "St. Jude Medical Center",
-      "hospitalId": "123"
+  -d "{
+    \"caseId\": \"$CASE_ID\",
+    \"currentStep\": \"hospital\",
+    \"stepData\": {
+      \"hospitalName\": \"St. Jude Medical Center\",
+      \"hospitalId\": \"123\"
     }
-  }'
+  }"
+```
+
+**Expected Response:**
+
+```json
+{
+  "success": true,
+  "caseId": "your-case-id-here",
+  "currentStep": "hospital",
+  "message": "Step \"hospital\" saved successfully"
+}
+```
+
+## Test 1-2: Create New Case - Hospital Step with City
+
+```bash
+# caseIdを生成
+CASE_ID=$(uuidgen 2>/dev/null || echo "test-$(date +%s)-$(shuf -i 1000-9999 -n 1)")
+
+curl -X PUT "${BASE_URL}/api/case-progress" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"caseId\": \"$CASE_ID\",
+    \"currentStep\": \"hospital\",
+    \"stepData\": {
+      \"hospitalName\": \"St. Jude Medical Center\",
+      \"hospitalId\": \"123\",
+      \"city\": \"Tokyo\"
+    }
+  }"
 ```
 
 **Expected Response:**
@@ -31,6 +67,47 @@ curl -X PUT "${BASE_URL}/api/case-progress" \
   "message": "Step \"hospital\" saved successfully"
 }
 ```
+
+**Note:** `city` will be saved to the `State` column in Google Sheets.
+
+## Test 1-3: Create New Case - Hospital Step with UTM Parameters
+
+```bash
+# caseIdを生成
+CASE_ID=$(uuidgen 2>/dev/null || echo "test-$(date +%s)-$(shuf -i 1000-9999 -n 1)")
+
+curl -X PUT "${BASE_URL}/api/case-progress" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"caseId\": \"$CASE_ID\",
+    \"currentStep\": \"hospital\",
+    \"stepData\": {
+      \"hospitalName\": \"St. Jude Medical Center\",
+      \"hospitalId\": \"123\",
+      \"city\": \"Tokyo\",
+      \"utm_source\": \"google\",
+      \"utm_campaign\": \"summer2024\"
+    }
+  }"
+```
+
+**Expected Response:**
+
+```json
+{
+  "success": true,
+  "caseId": "generated-uuid-here",
+  "currentStep": "hospital",
+  "message": "Step \"hospital\" saved successfully"
+}
+```
+
+**Note:**
+
+- `city` will be saved to the `State` column
+- `utm_source` will be saved to the `UTM Source` column
+- `utm_campaign` will be saved to the `UTM Campaign` column
+- UTM parameters are only saved when creating a new case (not when updating existing cases)
 
 ## Test 2: Update Existing Case - BillType Step
 
@@ -113,14 +190,37 @@ curl -X PUT "${BASE_URL}/api/case-progress" \
 Test missing required field:
 
 ```bash
+# caseIdが不足している場合
 curl -X PUT "${BASE_URL}/api/case-progress" \
   -H "Content-Type: application/json" \
   -d '{
     "currentStep": "hospital",
     "stepData": {
-      "hospitalId": "123"
+      "hospitalName": "Test Hospital"
     }
   }'
+```
+
+**Expected Response:**
+
+```json
+{
+  "error": "caseId is required and must be a string"
+}
+```
+
+```bash
+# hospitalNameが不足している場合
+CASE_ID=$(uuidgen 2>/dev/null || echo "test-$(date +%s)-$(shuf -i 1000-9999 -n 1)")
+curl -X PUT "${BASE_URL}/api/case-progress" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"caseId\": \"$CASE_ID\",
+    \"currentStep\": \"hospital\",
+    \"stepData\": {
+      \"hospitalId\": \"123\"
+    }
+  }"
 ```
 
 **Expected Response:**
@@ -159,19 +259,27 @@ curl -X PUT "${BASE_URL}/api/case-progress" \
 Here's a complete flow simulating a user going through all steps:
 
 ```bash
-# Step 1: Create case and get caseId
+# Step 1: Generate caseId and create case (with city and UTM parameters)
+CASE_ID=$(uuidgen 2>/dev/null || echo "test-$(date +%s)-$(shuf -i 1000-9999 -n 1)")
+echo "Generated Case ID: $CASE_ID"
+
 RESPONSE=$(curl -s -X PUT "${BASE_URL}/api/case-progress" \
   -H "Content-Type: application/json" \
-  -d '{
-    "currentStep": "hospital",
-    "stepData": {
-      "hospitalName": "St. Jude Medical Center",
-      "hospitalId": "123"
+  -d "{
+    \"caseId\": \"$CASE_ID\",
+    \"currentStep\": \"hospital\",
+    \"stepData\": {
+      \"hospitalName\": \"St. Jude Medical Center\",
+      \"hospitalId\": \"123\",
+      \"city\": \"Tokyo\",
+      \"utm_source\": \"google\",
+      \"utm_campaign\": \"summer2024\"
     }
-  }')
+  }")
 
-CASE_ID=$(echo $RESPONSE | jq -r '.caseId')
-echo "Case ID: $CASE_ID"
+echo "Response: $RESPONSE"
+RESPONSE_CASE_ID=$(echo $RESPONSE | jq -r '.caseId')
+echo "Response Case ID: $RESPONSE_CASE_ID"
 
 # Step 2: Update with billType
 curl -X PUT "${BASE_URL}/api/case-progress" \

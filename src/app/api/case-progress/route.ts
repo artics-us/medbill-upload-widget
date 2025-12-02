@@ -9,6 +9,8 @@ type HospitalStepData = {
   hospitalName: string;
   hospitalId?: string | null;
   city?: string | null;
+  utm_source?: string | null;
+  utm_campaign?: string | null;
 };
 
 type BillTypeStepData = {
@@ -231,23 +233,11 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // Get UTM parameters from query string
-    const utm_source = req.nextUrl.searchParams.get('utm_source') || undefined;
-    const utm_campaign = req.nextUrl.searchParams.get('utm_campaign') || undefined;
-    const utmParams =
-      utm_source || utm_campaign
-        ? { utm_source, utm_campaign }
-        : undefined;
-
     // Save to Google Sheets
+    // UTM parameters are extracted from stepData in saveCaseProgress function
     let sheetsWarning: string | null = null;
     try {
-      await saveCaseProgress(
-        caseId,
-        body.currentStep,
-        stepDataWithCity,
-        utmParams,
-      );
+      await saveCaseProgress(caseId, body.currentStep, stepDataWithCity);
     } catch (sheetsError: unknown) {
       console.error('Error saving to Google Sheets:', sheetsError);
 
