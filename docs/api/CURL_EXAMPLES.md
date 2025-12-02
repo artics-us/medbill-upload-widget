@@ -1,6 +1,7 @@
 # CURL Examples for /api/case-progress
 
 ## Base URL
+
 ```bash
 BASE_URL="http://localhost:3000"  # For local development
 # BASE_URL="https://your-production-domain.com"  # For production
@@ -21,6 +22,7 @@ curl -X PUT "${BASE_URL}/api/case-progress" \
 ```
 
 **Expected Response:**
+
 ```json
 {
   "success": true,
@@ -122,6 +124,7 @@ curl -X PUT "${BASE_URL}/api/case-progress" \
 ```
 
 **Expected Response:**
+
 ```json
 {
   "error": "hospitalName is required and must be a string"
@@ -144,6 +147,7 @@ curl -X PUT "${BASE_URL}/api/case-progress" \
 ```
 
 **Expected Response:**
+
 ```json
 {
   "error": "email must be a valid email address"
@@ -222,6 +226,305 @@ BASE_URL="https://your-domain.com" ./scripts/test-case-progress.sh
 ```
 
 **Note:** The test script requires `jq` to be installed for JSON parsing. Install it with:
+
 - macOS: `brew install jq`
 - Linux: `sudo apt-get install jq` or `sudo yum install jq`
 
+---
+
+# CURL Examples for /api/mixpanel/track
+
+## Base URL
+
+```bash
+BASE_URL="http://localhost:3000"  # For local development
+# BASE_URL="https://medbill-upload-widget.vercel.app"  # For production
+```
+
+## Test 1: Track Page View Event (Minimal - Event Only)
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "Page View"
+  }'
+```
+
+**Expected Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+## Test 2: Track Page View with Anonymous ID
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "Page View",
+    "distinct_id": "anonymous-user-123"
+  }'
+```
+
+## Test 3: Track Landing Page CTA Events
+
+```bash
+# Hero CTA Clicked
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "CTA Clicked Hero"
+  }'
+
+# Urgency CTA Clicked
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "CTA Clicked Urgency"
+  }'
+
+# Pricing CTA Clicked
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "CTA Clicked Pricing"
+  }'
+```
+
+## Test 4: Track How It Works CTA Events
+
+```bash
+# Step 1 CTA
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "CTA Clicked HowItWorks Step1"
+  }'
+
+# Step 2 CTA
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "CTA Clicked HowItWorks Step2"
+  }'
+
+# Step 3 CTA
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "CTA Clicked HowItWorks Step3"
+  }'
+```
+
+## Test 5: Track Hospital Page Events
+
+```bash
+# Hospital Submitted
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "Hospital Submitted"
+  }'
+
+# No Hospital Selected
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "No Hospital Selected"
+  }'
+```
+
+## Test 6: Track Bill Type Selected
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "Bill Type Selected"
+  }'
+```
+
+## Test 7: Track Balance Submitted
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "Balance Submitted"
+  }'
+```
+
+## Test 8: Track Insurance Status Selected
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "Insurance Status Selected"
+  }'
+```
+
+## Test 9: Track Next Steps CTA
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "CTA Clicked NextSteps"
+  }'
+```
+
+## Test 10: Track Contact Form Submitted
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "Contact Form Submitted"
+  }'
+```
+
+## Test 11: Track Upload Completed
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "Upload Completed"
+  }'
+```
+
+## Test 12: Track Schedule Consultation Clicked
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "Schedule Consultation Clicked"
+  }'
+```
+
+## Test 13: Validation Error - Missing Event
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "distinct_id": "user-123"
+  }'
+```
+
+**Expected Response:**
+
+```json
+{
+  "error": "Event name required"
+}
+```
+
+## Test 14: Event with Empty Properties (Recommended)
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "Page View",
+    "distinct_id": "user-123",
+    "properties": {}
+  }'
+```
+
+## Test 15: HIPAA Compliance Test - PII Filtering
+
+This test demonstrates that PII/PHI fields are automatically filtered out:
+
+```bash
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "Contact Form Submitted",
+    "properties": {
+      "email": "user@example.com",
+      "phone": "555-1234",
+      "hospitalName": "St. Jude",
+      "balance": 1500,
+      "caseId": "12345",
+      "safeProperty": "this-will-be-included"
+    }
+  }'
+```
+
+**Note:** Only `safeProperty` will be sent to Mixpanel. All PII/PHI fields (email, phone, hospitalName, balance, caseId) will be automatically filtered out.
+
+## Complete User Journey Example
+
+Here's a complete flow simulating a user going through the entire funnel:
+
+```bash
+# Landing Page - Page View
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "Page View"}'
+
+# Landing Page - Hero CTA Clicked
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "CTA Clicked Hero"}'
+
+# Hospital Page - Hospital Submitted
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "Hospital Submitted"}'
+
+# Bill Type Page - Bill Type Selected
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "Bill Type Selected"}'
+
+# Balance Page - Balance Submitted
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "Balance Submitted"}'
+
+# Insurance Page - Insurance Status Selected
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "Insurance Status Selected"}'
+
+# Next Steps - Continue Clicked
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "CTA Clicked NextSteps"}'
+
+# Contact Page - Contact Form Submitted
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "Contact Form Submitted"}'
+
+# Upload Page - Upload Completed
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "Upload Completed"}'
+
+# Done Page - Schedule Consultation Clicked
+curl -X POST "${BASE_URL}/api/mixpanel/track" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "Schedule Consultation Clicked"}'
+```
+
+## Notes
+
+- **API Endpoint**: `POST /api/mixpanel/track`
+- **Request Format**: `{ "event": "string (required)", "distinct_id": "string (optional)", "properties": {} (optional) }`
+- **Fire and Forget**: The API returns success immediately without waiting for Mixpanel response
+- **HIPAA Compliance**:
+  - PII/PHI fields are automatically filtered out (email, phone, hospitalName, hospitalId, balance, balanceAmount, insuranceStatus, billType, billToken, caseId, name, etc.)
+  - Only event names and safe properties are tracked
+  - All events are sent to Mixpanel Data Ingestion API directly
+- **distinct_id**: Optional - defaults to "anonymous" if not provided
+- **properties**: Optional - empty object `{}` is recommended to avoid accidentally sending PII
+- The API does not require authentication, but make sure to set up rate limiting in production
