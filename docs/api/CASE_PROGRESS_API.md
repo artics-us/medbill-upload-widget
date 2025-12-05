@@ -392,12 +392,51 @@ export function HospitalForm({ caseId }: { caseId: string | null }) {
 | `balanceAmount`   | `Balance amount`       |
 | `inCollections`   | `In collections`       |
 | `insuranceStatus` | `Insurance status`     |
+| `lpInputTime`     | `LP Input Time`        |
 
 ### 重要な変更点
 
 1. **`Current step` → `Last Done Page`**: カラム名が変更されました
 2. **`city` → `State`**: `city`を送信すると、`State`カラムに保存されます
 3. **UTM パラメータ**: クエリパラメータから自動取得され、新規ケース作成時のみ保存されます
+4. **`LP Input Time`**: ユーザーがLPに入力した時間が自動的に記録されます（後述）
+
+### LP Input Time について
+
+**`LP Input Time`** カラムは、ユーザーがLP（ランディングページ）に入力した時間を記録するカラムです。
+
+#### 動作仕様
+
+- **自動記録**: フロントエンドから明示的に送信する必要はありません。サーバーサイドで自動的に現在時刻が記録されます
+- **更新タイミング**: `/api/case-progress` APIを呼び出すたびに、`LP Input Time`が現在時刻で更新されます
+  - 新規ケース作成時: 現在時刻が記録されます
+  - 既存ケース更新時: 現在時刻で更新されます
+- **フォーマット**: ISO 8601形式（例: `2024-01-15T10:30:45.123Z`）
+
+#### 実装上の注意
+
+- フロントエンド側で特別な実装は不要です
+- `stepData`に`lpInputTime`を含める必要はありません（サーバーサイドで自動設定されます）
+- Google スプレッドシートに「LP Input Time」というカラムヘッダーが必要です（手動で追加してください）
+
+#### 使用例
+
+```typescript
+// 通常通りAPIを呼び出すだけで、LP Input Timeは自動的に記録されます
+await fetch("/api/case-progress", {
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    caseId: "case-123",
+    currentStep: "hospital",
+    stepData: {
+      hospitalName: "Hospital Name",
+      // lpInputTimeは含めない（サーバーサイドで自動設定）
+    },
+  }),
+});
+// → このAPI呼び出し時に、LP Input Timeが現在時刻で記録/更新されます
+```
 
 ## ⚠️ 注意事項
 

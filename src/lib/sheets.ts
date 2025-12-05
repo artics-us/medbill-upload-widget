@@ -77,6 +77,7 @@ const DATA_COLUMN_MAP: Record<string, string> = {
   city: 'State',
   utm_source: 'UTM Source',
   utm_campaign: 'UTM Campaign',
+  lpInputTime: 'LP Input Time',
   // Note: Some fields like createdAt, updatedAt, status, etc.
   // don't have direct mappings in the new spreadsheet structure
   // They can be added to the mapping if needed
@@ -451,6 +452,9 @@ export async function saveCaseProgress(
         if (stepData.agreedToTerms !== undefined)
           dataToSave.agreedToTerms = stepData.agreedToTerms;
     }
+
+    // Always update LP input time when data is saved (both new and existing rows)
+    dataToSave.lpInputTime = new Date().toISOString();
 
     if (existingRow) {
       // Update existing row
