@@ -2,9 +2,9 @@
 
 ## 📋 概要
 
-このドキュメントは、`/api/brevo-doi` API を使用してBrevoのDouble Opt-In（DOI）メールを送信する方法を説明します。
+このドキュメントは、`/api/brevo-doi` API を使用して Brevo の Double Opt-In（DOI）メールを送信する方法を説明します。
 
-Double Opt-Inは、ユーザーがメールアドレスを登録した際に、確認メールを送信して本人確認を行うための仕組みです。ユーザーがメール内のリンクをクリックすることで、メールアドレスの有効性が確認されます。
+Double Opt-In は、ユーザーがメールアドレスを登録した際に、確認メールを送信して本人確認を行うための仕組みです。ユーザーがメール内のリンクをクリックすることで、メールアドレスの有効性が確認されます。
 
 ## 🚀 クイックスタート
 
@@ -57,7 +57,7 @@ POST /api/brevo-doi
 
 #### 設定不備時 (200)
 
-サーバー側でBrevoの設定が不完全な場合：
+サーバー側で Brevo の設定が不完全な場合：
 
 ```json
 {
@@ -69,7 +69,7 @@ POST /api/brevo-doi
 
 #### 失敗時 (200)
 
-Brevo APIの呼び出しに失敗した場合：
+Brevo API の呼び出しに失敗した場合：
 
 ```json
 {
@@ -118,49 +118,53 @@ export function useBrevoDOI() {
   const [status, setStatus] = useState<BrevoDOIStatus>("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const sendDOI = useCallback(async (email: string): Promise<BrevoDOIResult> => {
-    setStatus("loading");
-    setError(null);
+  const sendDOI = useCallback(
+    async (email: string): Promise<BrevoDOIResult> => {
+      setStatus("loading");
+      setError(null);
 
-    try {
-      const response = await fetch("/api/brevo-doi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+      try {
+        const response = await fetch("/api/brevo-doi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
 
-      const result: BrevoDOIResult = await response.json();
+        const result: BrevoDOIResult = await response.json();
 
-      if (!response.ok) {
-        // HTTPエラー（400, 500など）
+        if (!response.ok) {
+          // HTTPエラー（400, 500など）
+          setStatus("error");
+          setError(result.error || "Failed to send DOI email");
+          return result;
+        }
+
+        if (result.ok && result.status === "sent") {
+          setStatus("success");
+          return result;
+        } else if (result.status === "skipped") {
+          setStatus("skipped");
+          setError(result.error || "Brevo DOI is not configured");
+          return result;
+        } else {
+          setStatus("error");
+          setError(result.error || "Failed to send DOI email");
+          return result;
+        }
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Network error";
         setStatus("error");
-        setError(result.error || "Failed to send DOI email");
-        return result;
+        setError(errorMessage);
+        return {
+          ok: false,
+          status: "failed",
+          error: errorMessage,
+        };
       }
-
-      if (result.ok && result.status === "sent") {
-        setStatus("success");
-        return result;
-      } else if (result.status === "skipped") {
-        setStatus("skipped");
-        setError(result.error || "Brevo DOI is not configured");
-        return result;
-      } else {
-        setStatus("error");
-        setError(result.error || "Failed to send DOI email");
-        return result;
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Network error";
-      setStatus("error");
-      setError(errorMessage);
-      return {
-        ok: false,
-        status: "failed",
-        error: errorMessage,
-      };
-    }
-  }, []);
+    },
+    []
+  );
 
   return {
     sendDOI,
@@ -308,7 +312,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   await fetch("/api/submit-case", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, /* ... */ }),
+    body: JSON.stringify({ email /* ... */ }),
   });
 
   // DOI送信は非同期で実行（エラーハンドリングは最小限）
@@ -325,26 +329,26 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 ### ステータスの意味
 
-- **`sent`**: Brevo APIへの呼び出しが成功し、確認メールが送信されました
-- **`skipped`**: サーバー側でBrevoの設定が不完全なため、DOI送信がスキップされました（開発環境などでよく発生）
-- **`failed`**: Brevo APIへの呼び出しが失敗しました（メールアドレスの形式エラー、APIキーの問題など）
+- **`sent`**: Brevo API への呼び出しが成功し、確認メールが送信されました
+- **`skipped`**: サーバー側で Brevo の設定が不完全なため、DOI 送信がスキップされました（開発環境などでよく発生）
+- **`failed`**: Brevo API への呼び出しが失敗しました（メールアドレスの形式エラー、API キーの問題など）
 
 ### エラーハンドリングの推奨事項
 
-1. **`status: "skipped"`の場合**: 開発環境や設定不備の場合によく発生します。ユーザーには通常のフォーム送信が成功したことを伝え、DOIメールについては言及しないことを推奨します。
+1. **`status: "skipped"`の場合**: 開発環境や設定不備の場合によく発生します。ユーザーには通常のフォーム送信が成功したことを伝え、DOI メールについては言及しないことを推奨します。
 
-2. **`status: "failed"`の場合**: Brevo APIのエラーが発生しています。ログに記録し、必要に応じてユーザーに通知しますが、通常のフォーム送信処理は続行することを推奨します。
+2. **`status: "failed"`の場合**: Brevo API のエラーが発生しています。ログに記録し、必要に応じてユーザーに通知しますが、通常のフォーム送信処理は続行することを推奨します。
 
-3. **HTTPエラー（400, 500）の場合**: リクエストのバリデーションエラーやサーバーエラーです。適切なエラーメッセージをユーザーに表示してください。
+3. **HTTP エラー（400, 500）の場合**: リクエストのバリデーションエラーやサーバーエラーです。適切なエラーメッセージをユーザーに表示してください。
 
 ### メール送信のタイミング
 
-- **推奨**: ケース送信やフォーム送信が成功した**後**にDOIメールを送信することを推奨します
-- **理由**: メインの処理が成功していることを確認してから、補助的な機能（DOIメール）を実行することで、ユーザー体験を損なわないようにできます
+- **推奨**: ケース送信やフォーム送信が成功した**後**に DOI メールを送信することを推奨します
+- **理由**: メインの処理が成功していることを確認してから、補助的な機能（DOI メール）を実行することで、ユーザー体験を損なわないようにできます
 
-### CORSについて
+### CORS について
 
-このAPIはCORSに対応しています。`BASE44_ORIGIN`環境変数で許可されたオリジンからのリクエストのみを受け付けます。
+この API は CORS に対応しています。`BASE44_ORIGIN`環境変数で許可されたオリジンからのリクエストのみを受け付けます。
 
 ## 🔍 レスポンス例
 
@@ -368,7 +372,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 }
 ```
 
-### Brevo APIエラー時のレスポンス
+### Brevo API エラー時のレスポンス
 
 ```json
 {
@@ -388,7 +392,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 ## 🧪 テスト方法
 
-### curlでのテスト
+### curl でのテスト
 
 ```bash
 # 成功ケース
@@ -418,7 +422,7 @@ fetch("/api/brevo-doi", {
 
 ## 📚 関連ドキュメント
 
-- [Case Progress API Guide](./CASE_PROGRESS_API.md) - ケース進捗保存API
+- [Case Progress API Guide](./CASE_PROGRESS_API.md) - ケース進捗保存 API
 - [CURL Examples](./CURL_EXAMPLES.md) - API の詳細なテスト例
 - [API README](../README.md) - 全体的な API ドキュメント
 
@@ -428,14 +432,13 @@ fetch("/api/brevo-doi", {
 
 ## 🔧 サーバー側の設定
 
-このAPIを使用するには、サーバー側で以下の環境変数が設定されている必要があります：
+この API を使用するには、サーバー側で以下の環境変数が設定されている必要があります：
 
-- `BREVO_API_KEY` - Brevo APIキー
-- `BREVO_REDIRECT_URL` - 確認メール内のリダイレクトURL
-- `BREVO_INCLUDE_LIST_ID` - 含めるリストID
-- `BREVO_EXCLUDE_LIST_ID` - 除外するリストID
-- `BREVO_TEMPLATE_ID` - 使用するメールテンプレートID
-- `BASE44_ORIGIN` - CORS許可オリジン（オプション、デフォルト: `*`）
+- `BREVO_API_KEY` - Brevo API キー
+- `BREVO_REDIRECT_URL` - 確認メール内のリダイレクト URL
+- `BREVO_INCLUDE_LIST_ID` - 含めるリスト ID
+- `BREVO_EXCLUDE_LIST_ID` - 除外するリスト ID
+- `BREVO_TEMPLATE_ID` - 使用するメールテンプレート ID
+- `BASE44_ORIGIN` - CORS 許可オリジン（オプション、デフォルト: `*`）
 
-これらの設定が不完全な場合、APIは`status: "skipped"`を返します。
-
+これらの設定が不完全な場合、API は`status: "skipped"`を返します。
