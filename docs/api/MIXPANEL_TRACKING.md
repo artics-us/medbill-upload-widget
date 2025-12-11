@@ -282,9 +282,9 @@ function MyComponent() {
 
 ## ⚠️ HIPAA 準拠の注意事項
 
-### ❌ 送信禁止データ（PII/PHI）
+### デフォルト動作（PII/PHI フィルタリング有効）
 
-以下のデータは**絶対に送信しないでください**。バックエンドで自動的に除外されますが、フロントエンドから送信しないことが推奨されます：
+デフォルトでは、以下の PII/PHI データは**自動的に除外**されます（HIPAA 準拠）：
 
 - `email` - メールアドレス
 - `phone` - 電話番号
@@ -295,16 +295,17 @@ function MyComponent() {
 - `billType` / `billToken` - 請求書タイプ/トークン
 - `caseId` - ケース ID
 - `name` / `firstName` / `lastName` - 氏名
-- `address` / `zipCode` / `city` / `state` - 住所情報
+- `address` / `zipCode` - 住所情報
 
-### ✅ 送信可能データ
+### ✅ 送信可能データ（デフォルト）
 
 - **イベント名のみ**（推奨）
 - 匿名の `distinct_id`
 - タイムスタンプ（自動付与）
 - PII/PHI を含まない安全なプロパティ
+- Mixpanel 標準プロパティ（`$`で始まる、例: `$city`, `$country_code`）
 
-### 推奨パターン
+### 推奨パターン（デフォルト設定）
 
 ```typescript
 // ✅ 良い例：イベント名のみ
@@ -316,11 +317,52 @@ trackEvent("Page View", "anonymous-user-123");
 // ✅ 良い例：空のproperties
 trackEvent("Contact Form Submitted", undefined, {});
 
-// ❌ 悪い例：PIIを含む
+// ✅ 良い例：安全なプロパティのみ
+trackEvent("Form Submitted", undefined, {
+  step: "contact",
+  page: "landing",
+  $city: "Tokyo",
+});
+
+// ❌ 悪い例：PIIを含む（デフォルトでは自動削除される）
 trackEvent("Contact Form Submitted", undefined, {
-  email: "user@example.com", // ❌ 禁止
-  phone: "555-1234", // ❌ 禁止
-  hospitalName: "St. Jude", // ❌ 禁止
+  email: "user@example.com", // ❌ 自動削除される
+  phone: "555-1234", // ❌ 自動削除される
+  hospitalName: "St. Jude", // ❌ 自動削除される
+});
+```
+
+## 🔓 PII/PHI トラッキングの有効化
+
+PII/PHI データもトラッキングしたい場合は、サーバー側で環境変数を設定することで有効化できます。
+
+### 環境変数の設定
+
+```bash
+# .env.local または Vercel の環境変数に追加
+MIXPANEL_ALLOW_PII=true
+```
+
+### 注意事項
+
+⚠️ **重要な警告**:
+
+- PII/PHI トラッキングを有効にすると、個人識別情報が Mixpanel に送信されます
+- HIPAA 準拠の要件を確認してください
+- 本番環境で有効にする場合は、法的・規制上の要件を満たしていることを確認してください
+- 開発環境やテスト環境でのみ使用することを推奨します
+
+### PII/PHI トラッキング有効時の使用例
+
+```typescript
+// MIXPANEL_ALLOW_PII=true の場合、以下のプロパティも送信されます
+trackEvent("Contact Form Submitted", undefined, {
+  email: "user@example.com", // ✅ 送信される
+  phone: "555-1234", // ✅ 送信される
+  hospitalName: "St. Jude Medical Center", // ✅ 送信される
+  balance: 1500.75, // ✅ 送信される
+  insuranceStatus: "Uninsured", // ✅ 送信される
+  caseId: "case-123", // ✅ 送信される
 });
 ```
 
@@ -442,6 +484,36 @@ A: はい、フロントエンドの Mixpanel SDK コードをこの API を使�
 ### Q: 本番環境と開発環境で異なる動作をさせたい場合は？
 
 A: 環境変数や設定ファイルを使用して、開発環境ではログを出力し、本番環境ではサイレントに実行するように実装できます。
+
+### Q: PII/PHI データをトラッキングしたい場合は？
+
+A: サーバー側で環境変数`MIXPANEL_ALLOW_PII=true`を設定することで有効化できます。ただし、HIPAA 準拠の要件を確認してください。
+
+## 🔧 サーバー側の環境変数
+
+この API を使用するには、サーバー側で以下の環境変数が設定されている必要があります：
+
+### 必須
+
+- `MIXPANEL_TOKEN` - Mixpanel プロジェクトトークン（例: `e2be194a42420ec6ebc00a9cbf5aecd2`）
+
+### オプション
+
+- `MIXPANEL_ALLOW_PII` - PII/PHI トラッキングを有効にする（デフォルト: `false`）
+
+  - `true` に設定すると、`email`、`phone`、`hospitalName`などの PII/PHI データも送信されます
+  - ⚠️ **警告**: HIPAA 準拠の要件を確認してください。本番環境で使用する場合は法的・規制上の要件を満たしていることを確認してください
+
+- `BASE44_ORIGIN` - CORS 許可オリジン（オプション、デフォルト: `*`）
+
+### 設定例
+
+```bash
+# .env.local または Vercel の環境変数
+MIXPANEL_TOKEN=your_mixpanel_token_here
+MIXPANEL_ALLOW_PII=false  # デフォルト: PII/PHIはフィルタリングされる
+BASE44_ORIGIN=https://yourdomain.com
+```
 
 ## 📚 関連ドキュメント
 

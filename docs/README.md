@@ -52,11 +52,18 @@ Test scripts are located in the `scripts/` directory:
 
 Set this in your `.env.local` file or in your deployment environment (Vercel, etc.).
 
+### Optional for Mixpanel Tracking
+
+- `MIXPANEL_ALLOW_PII` - Enable PII/PHI tracking (default: `false`)
+  - Set to `true` to allow tracking of PII/PHI data (email, phone, hospitalName, etc.)
+  - ⚠️ **Warning**: Ensure HIPAA compliance requirements are met before enabling in production
+
 ### Mixpanel Tracking API
 
 The `/api/mixpanel/track` endpoint provides HIPAA-compliant event tracking:
 
 - **Endpoint**: `POST /api/mixpanel/track`
 - **Request**: `{ "event": "string (required)", "distinct_id": "string (optional)", "properties": {} (optional) }`
-- **HIPAA Compliance**: Automatically filters out PII/PHI (email, phone, hospitalName, balance, etc.)
+- **HIPAA Compliance**: By default, automatically filters out PII/PHI (email, phone, hospitalName, balance, etc.)
+  - Can be disabled by setting `MIXPANEL_ALLOW_PII=true` (use with caution)
 - **Fire and Forget**: Returns success immediately without waiting for Mixpanel response

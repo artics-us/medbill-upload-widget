@@ -4,8 +4,13 @@ import { NextRequest, NextResponse } from 'next/server';
 const ALLOWED_ORIGIN = process.env.BASE44_ORIGIN || '*';
 const MIXPANEL_TOKEN = process.env.MIXPANEL_TOKEN;
 
+// Allow PII/PHI tracking if explicitly enabled via environment variable
+// Default: false (HIPAA compliance - PII/PHI filtered by default)
+const ALLOW_PII = process.env.MIXPANEL_ALLOW_PII === 'true';
+
 // List of PII/PHI fields that should never be sent to Mixpanel (HIPAA compliance)
-// Note: Mixpanel standard properties ($city, $country_code, etc.) are allowed
+// Note: Mixpanel standard properties ($city, $country_code, etc.) are always allowed
+// This list is only used when ALLOW_PII is false
 const FORBIDDEN_PROPERTIES = [
   'email',
   'phone',
@@ -30,8 +35,15 @@ const FORBIDDEN_PROPERTIES = [
 /**
  * Remove PII/PHI from properties object to ensure HIPAA compliance
  * Note: Mixpanel standard properties (starting with $) are always allowed
+ * If MIXPANEL_ALLOW_PII=true, this function returns properties as-is (no filtering)
  */
 function sanitizeProperties(properties: Record<string, unknown>): Record<string, unknown> {
+  // If PII is explicitly allowed, return properties without filtering
+  if (ALLOW_PII) {
+    console.log('[Mixpanel] PII/PHI tracking is enabled. All properties will be sent.');
+    return properties;
+  }
+
   const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(properties)) {
@@ -41,7 +53,7 @@ function sanitizeProperties(properties: Record<string, unknown>): Record<string,
       continue;
     }
 
-    // Skip forbidden properties
+    // Skip forbidden properties (only when ALLOW_PII is false)
     if (FORBIDDEN_PROPERTIES.includes(key)) {
       console.warn(`Skipping forbidden property: ${key}`);
       continue;
@@ -155,6 +167,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Sanitize properties to remove PII/PHI (HIPAA compliance)
+    // Note: If MIXPANEL_ALLOW_PII=true, all properties including PII/PHI will be sent
     const sanitizedProperties = sanitizeProperties(properties);
 
     // Get geographic and device information from request
