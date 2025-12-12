@@ -48,7 +48,7 @@ type CaseProgressRequest = {
 
 function withCors(res: NextResponse) {
   res.headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
-  res.headers.set('Access-Control-Allow-Methods', 'PUT, OPTIONS');
+  res.headers.set('Access-Control-Allow-Methods', 'POST, PUT, OPTIONS');
   res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
   return res;
 }
@@ -170,13 +170,12 @@ function validateStepData(
 }
 
 /**
- * PUT /api/case-progress
- *
+ * Shared handler for both POST and PUT requests
  * Idempotent endpoint for saving/updating case progress.
  * Users can resend the same step data multiple times (e.g., when going back and forth between pages).
  * caseId is required and must reference an existing case.
  */
-export async function PUT(req: NextRequest) {
+async function handleCaseProgress(req: NextRequest) {
   try {
     const body: CaseProgressRequest = await req.json();
 
@@ -287,5 +286,26 @@ export async function PUT(req: NextRequest) {
       ),
     );
   }
+}
+
+/**
+ * POST /api/case-progress
+ *
+ * Alias for PUT endpoint to support legacy clients.
+ * See PUT handler for documentation.
+ */
+export async function POST(req: NextRequest) {
+  return handleCaseProgress(req);
+}
+
+/**
+ * PUT /api/case-progress
+ *
+ * Idempotent endpoint for saving/updating case progress.
+ * Users can resend the same step data multiple times (e.g., when going back and forth between pages).
+ * caseId is required and must reference an existing case.
+ */
+export async function PUT(req: NextRequest) {
+  return handleCaseProgress(req);
 }
 
