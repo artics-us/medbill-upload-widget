@@ -29,8 +29,8 @@ type InsuranceStepData = {
 };
 
 type ContactStepData = {
-  email: string;
-  phone?: string | null;
+  email?: string;
+  phone: string;
   agreedToTerms: boolean;
 };
 
@@ -140,16 +140,26 @@ function validateStepData(
         return { valid: false, error: 'stepData must be an object' };
       }
       const contactData = stepData as ContactStepData;
-      if (!contactData.email || typeof contactData.email !== 'string') {
+      // email is optional, but if provided, must be a valid email address
+      if (contactData.email !== undefined) {
+        if (typeof contactData.email !== 'string') {
+          return {
+            valid: false,
+            error: 'email must be a string if provided',
+          };
+        }
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (contactData.email && !emailRegex.test(contactData.email)) {
+          return { valid: false, error: 'email must be a valid email address' };
+        }
+      }
+      // phone is required
+      if (!contactData.phone || typeof contactData.phone !== 'string') {
         return {
           valid: false,
-          error: 'email is required and must be a string',
+          error: 'phone is required and must be a string',
         };
-      }
-      // Basic email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(contactData.email)) {
-        return { valid: false, error: 'email must be a valid email address' };
       }
       if (
         contactData.agreedToTerms !== undefined &&
@@ -338,13 +348,12 @@ async function handleCaseProgress(req: NextRequest) {
         switch (currentStep) {
           case 'contact': {
             const contactData = stepDataWithCity as ContactStepData;
-            if (contactData.email) {
-              updateData.contactEmail = contactData.email;
+            // email is optional, set it if provided
+            if (contactData.email !== undefined) {
+              updateData.contactEmail = contactData.email || null;
             }
-            if (contactData.phone !== undefined) {
-              // Allow null to clear phone number if explicitly set
-              updateData.contactPhone = contactData.phone;
-            }
+            // phone is required and validated, so always set it
+            updateData.contactPhone = contactData.phone;
             break;
           }
           case 'hospital': {
