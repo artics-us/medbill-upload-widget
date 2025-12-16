@@ -1,0 +1,73 @@
+// prisma/schema.prisma
+// Source of Truth DB schema for case progress (events + current state)
+// - currentStep (stepKey) can change over time, so we store stepData as JSONB.
+// - Idempotency is enforced via submission_id (UUID) unique.
+// - This schema is designed for Neon Postgres on Vercel.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model CaseProgressEvent {
+  id           BigInt   @id @default(autoincrement()) @db.BigInt
+  submissionId String   @unique @map("submission_id") @db.Uuid
+  caseId       String   @map("case_id") @db.Uuid
+
+  stepKey      String   @map("step_key")
+  stepVersion  Int      @default(1) @map("step_version")
+
+  payload      Json     @map("payload") @db.JsonB
+  receivedAt   DateTime @default(now()) @map("received_at") @db.Timestamptz(6)
+
+  // Optional observability / debugging metadata
+  source       String?  @map("source")
+  userAgent    String?  @map("user_agent")
+  ip           String?  @map("ip") @db.Inet
+
+  @@map("case_progress_events")
+
+  @@index([caseId, receivedAt(sort: Desc)], map: "ix_case_progress_events_case_time")
+  @@index([stepKey, receivedAt(sort: Desc)], map: "ix_case_progress_events_step_time")
+  @@index([payload], type: Gin, map: "gin_case_progress_events_payload")
+}
+
+model Case {
+  caseId       String   @id @map("case_id") @db.Uuid
+
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // UI/ops convenience (not required for correctness)
+  currentStep  String?  @map("current_step")
+
+  // Latest payload per step_key, e.g. {"hospital": {...}, "balance": {...}}
+  progress     Json     @default("{}") @map("progress") @db.JsonB
+
+  // OPTIONAL: extracted columns for fast filtering/search in ops dashboards.
+  // If you want "no PII/PHI in DB for now", you can remove these fields.
+  contactEmail  String?   @map("contact_email")
+  contactPhone  String?   @map("contact_phone")
+  hospitalName  String?   @map("hospital_name")
+  balanceAmount Decimal?  @map("balance_amount")
+  inCollections Boolean?  @map("in_collections")
+
+  @@map("cases")
+
+  @@index([updatedAt(sort: Desc)], map: "ix_cases_updated_at")
+  @@index([contactEmail], map: "ix_cases_contact_email")
+  @@index([progress], type: Gin, map: "gin_cases_progress")
+}
+
+// Future (PHI separation) idea:
+// Keep PHI (full name + medical details linkage) in a separate table or even a separate HIPAA/BAA-bounded system.
+// model CasePhi {
+//   caseId     String  @id @map("case_id") @db.Uuid
+//   fullName   String? @map("full_name")
+//   // ... other PHI fields
+//   @@map("case_phi")
+// }

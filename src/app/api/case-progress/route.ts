@@ -1,5 +1,7 @@
 // src/app/api/case-progress/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { saveCaseProgress } from '@/lib/sheets';
 
 const ALLOWED_ORIGIN = process.env.BASE44_ORIGIN || '*';
@@ -41,9 +43,10 @@ type StepData =
   | Record<string, unknown>; // Fallback for unknown steps
 
 type CaseProgressRequest = {
-  caseId: string; // Required: must reference an existing case.
-  currentStep: string;
-  stepData: StepData;
+  submissionId?: string; // Optional: if not provided, server will generate one
+  caseId: string; // Required: UUID of the case
+  currentStep: string; // Step key (e.g., 'hospital', 'billType', etc.)
+  stepData: StepData; // Step-specific data payload
 };
 
 function withCors(res: NextResponse) {
@@ -170,10 +173,25 @@ function validateStepData(
 }
 
 /**
+ * Generate UUID v4
+ */
+function generateUUID(): string {
+  // Use crypto.randomUUID if available (Node.js 19+, browsers)
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older environments
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
  * Shared handler for both POST and PUT requests
- * Idempotent endpoint for saving/updating case progress.
- * Users can resend the same step data multiple times (e.g., when going back and forth between pages).
- * caseId is required and must reference an existing case.
+ * Idempotent endpoint for saving/updating case progress to DB (source of truth).
+ * Google Sheets sync is best-effort and does not affect API success.
  */
 async function handleCaseProgress(req: NextRequest) {
   try {
@@ -183,7 +201,7 @@ async function handleCaseProgress(req: NextRequest) {
     if (!body.caseId || typeof body.caseId !== 'string') {
       return withCors(
         NextResponse.json(
-          { error: 'caseId is required and must be a string' },
+          { success: false, error: 'caseId is required and must be a string' },
           { status: 400 },
         ),
       );
@@ -192,7 +210,7 @@ async function handleCaseProgress(req: NextRequest) {
     if (!body.currentStep || typeof body.currentStep !== 'string') {
       return withCors(
         NextResponse.json(
-          { error: 'currentStep is required and must be a string' },
+          { success: false, error: 'currentStep is required and must be a string' },
           { status: 400 },
         ),
       );
@@ -201,28 +219,33 @@ async function handleCaseProgress(req: NextRequest) {
     if (!body.stepData || typeof body.stepData !== 'object') {
       return withCors(
         NextResponse.json(
-          { error: 'stepData is required and must be an object' },
+          { success: false, error: 'stepData is required and must be an object' },
           { status: 400 },
         ),
       );
     }
 
-    // Validate step-specific data
+    // Validate step-specific data (basic shape check for unknown steps)
     const validation = validateStepData(body.currentStep, body.stepData);
     if (!validation.valid) {
       return withCors(
-        NextResponse.json({ error: validation.error }, { status: 400 }),
+        NextResponse.json(
+          { success: false, error: validation.error },
+          { status: 400 },
+        ),
       );
     }
 
-    // Use provided caseId (must reference an existing case)
     const caseId = body.caseId;
+    const currentStep = body.currentStep;
+
+    // Generate submissionId if not provided
+    const submissionId = body.submissionId || generateUUID();
 
     // For hospital step, get city from request if not provided in stepData
     let stepDataWithCity = { ...body.stepData };
     if (body.currentStep === 'hospital') {
       const hospitalData = stepDataWithCity as HospitalStepData;
-      // If city is not provided in stepData, try to get it from request geo
       if (!hospitalData.city) {
         const geo = (req as unknown as { geo?: { city?: string } }).geo;
         if (geo?.city) {
@@ -232,41 +255,125 @@ async function handleCaseProgress(req: NextRequest) {
       }
     }
 
-    // Save to Google Sheets
-    // UTM parameters are extracted from stepData in saveCaseProgress function
-    let sheetsWarning: string | null = null;
-    try {
-      await saveCaseProgress(caseId, body.currentStep, stepDataWithCity);
-    } catch (sheetsError: unknown) {
-      console.error('Error saving to Google Sheets:', sheetsError);
+    // Extract metadata for observability
+    const userAgent = req.headers.get('user-agent') || undefined;
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+               req.headers.get('x-real-ip') || undefined;
 
-      // Check for specific error types and pass through helpful messages
-      const err = sheetsError as { message?: string } | null;
-      if (err?.message) {
-        // Pass through helpful error messages (API not enabled, permission denied, etc.)
-        sheetsWarning = err.message;
-      } else {
-        sheetsWarning = 'Failed to save to Google Sheets. Check server logs for details.';
-      }
-      // Continue even if Sheets save fails (non-critical)
-      // The API will still return success, but include a warning
+    // DB Transaction: Insert event and upsert case
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 1. Insert CaseProgressEvent (idempotent via submissionId unique constraint)
+        try {
+          await tx.caseProgressEvent.create({
+            data: {
+              submissionId,
+              caseId,
+              stepKey: currentStep,
+              stepVersion: 1,
+              payload: stepDataWithCity as Prisma.InputJsonValue,
+              source: 'base44',
+              userAgent,
+              ip: ip ? ip : undefined,
+            },
+          });
+        } catch (eventError: unknown) {
+          // Handle unique constraint violation (P2002) - idempotency
+          if (
+            eventError instanceof Prisma.PrismaClientKnownRequestError &&
+            eventError.code === 'P2002'
+          ) {
+            // submissionId already exists - this is OK, treat as success
+            console.log(
+              `Idempotent submission detected: submissionId=${submissionId} already exists`,
+            );
+          } else {
+            // Re-throw other errors
+            throw eventError;
+          }
+        }
+
+        // 2. Upsert Case (update currentStep and merge progress JSONB)
+        const existingCase = await tx.case.findUnique({
+          where: { caseId },
+          select: { progress: true },
+        });
+
+        const existingProgress =
+          existingCase?.progress && typeof existingCase.progress === 'object'
+            ? (existingCase.progress as Record<string, unknown>)
+            : {};
+
+        // Merge new step data into existing progress
+        const updatedProgress = {
+          ...existingProgress,
+          [currentStep]: stepDataWithCity,
+        };
+
+        await tx.case.upsert({
+          where: { caseId },
+          create: {
+            caseId,
+            currentStep,
+            progress: updatedProgress as Prisma.InputJsonValue,
+          },
+          update: {
+            currentStep,
+            progress: updatedProgress as Prisma.InputJsonValue,
+          },
+        });
+      });
+    } catch (dbError: unknown) {
+      console.error('Database error in /api/case-progress:', dbError);
+
+      // Determine if error is retryable
+      const isRetryable =
+        dbError instanceof Prisma.PrismaClientKnownRequestError &&
+        (dbError.code === 'P1001' || // Connection error
+          dbError.code === 'P1008' || // Operation timed out
+          dbError.code === 'P1017'); // Server closed connection
+
+      return withCors(
+        NextResponse.json(
+          {
+            success: false,
+            error:
+              dbError instanceof Error
+                ? dbError.message
+                : 'Database error in /api/case-progress',
+            retryable: isRetryable,
+          },
+          { status: isRetryable ? 503 : 500 },
+        ),
+      );
     }
 
-    // Return success response with caseId
+    // DB save succeeded - now attempt Sheets sync (best-effort)
+    let sheetsWarning: string | null = null;
+    try {
+      await saveCaseProgress(caseId, currentStep, stepDataWithCity);
+    } catch (sheetsError: unknown) {
+      console.error('Error saving to Google Sheets (non-critical):', sheetsError);
+      const err = sheetsError as { message?: string } | null;
+      sheetsWarning = err?.message || 'Failed to save to Google Sheets. Check server logs for details.';
+      // Continue - Sheets failure does not affect API success
+    }
+
+    // Return success response (DB save succeeded)
     const response: {
       success: boolean;
       caseId: string;
       currentStep: string;
-      message: string;
+      submissionId: string;
       warning?: string;
     } = {
       success: true,
       caseId,
-      currentStep: body.currentStep,
-      message: `Step "${body.currentStep}" saved successfully`,
+      currentStep,
+      submissionId,
     };
 
-    // Include warning if Google Sheets save failed
+    // Include warning if Google Sheets sync failed (but API still succeeded)
     if (sheetsWarning) {
       response.warning = sheetsWarning;
     }
@@ -277,10 +384,12 @@ async function handleCaseProgress(req: NextRequest) {
     return withCors(
       NextResponse.json(
         {
+          success: false,
           error:
             err instanceof Error
               ? err.message
               : 'Internal error in /api/case-progress',
+          retryable: false,
         },
         { status: 500 },
       ),

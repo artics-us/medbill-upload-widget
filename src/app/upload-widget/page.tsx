@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
+import { saveCaseProgress, initializeOutboxFlush } from '@/lib/base44-case-progress';
 
 const BASE44_ORIGIN = process.env.NEXT_PUBLIC_BASE44_ORIGIN || '';
 
@@ -49,6 +50,11 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Initialize outbox flush on mount
+  useEffect(() => {
+    initializeOutboxFlush();
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -291,25 +297,22 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
           }`,
         );
 
-        // Save upload status to /api/case-progress so it is reflected in Google Sheets
+        // Save upload status to /api/case-progress (with Outbox pattern for retry)
         try {
-          await fetch('/api/case-progress', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              caseId: resolvedCaseId,
-              currentStep: 'upload',
-              stepData: {
-                hasUpload: true,
-                uploadCount: totalSuccessCount,
-                lastUploadAt: new Date().toISOString(),
-                caseToken: newCaseToken ?? null,
-              },
-            }),
+          await saveCaseProgress({
+            caseId: resolvedCaseId,
+            currentStep: 'upload',
+            stepData: {
+              hasUpload: true,
+              uploadCount: totalSuccessCount,
+              lastUploadAt: new Date().toISOString(),
+              caseToken: newCaseToken ?? null,
+            },
           });
         } catch (cpErr) {
           console.error('Failed to save upload step to /api/case-progress:', cpErr);
-          // Sheets 更新失敗はクリティカルではないので、UI 上は成功扱いのままにする
+          // Error is already handled by saveCaseProgress (added to outbox if retryable)
+          // UI remains successful since DB save is guaranteed via outbox retry
         }
 
         // Notify the parent (Base44) that upload is completed (only once for all files)

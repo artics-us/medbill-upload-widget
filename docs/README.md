@@ -20,9 +20,9 @@ docs/
 
 ### API Documentation
 
-- **[Case Progress API Guide](./api/CASE_PROGRESS_API.md)** - フロントエンドエンジニア向けのCase Progress API実装ガイド ⭐
-- **[Mixpanel Tracking Guide](./api/MIXPANEL_TRACKING.md)** - フロントエンドエンジニア向けのMixpanelトラッキング実装ガイド
-- **[Brevo Double Opt-In API Guide](./api/BREVO_DOI_API.md)** - フロントエンドエンジニア向けのBrevo Double Opt-In API実装ガイド
+- **[Case Progress API Guide](./api/CASE_PROGRESS_API.md)** - フロントエンドエンジニア向けの Case Progress API 実装ガイド ⭐
+- **[Mixpanel Tracking Guide](./api/MIXPANEL_TRACKING.md)** - フロントエンドエンジニア向けの Mixpanel トラッキング実装ガイド
+- **[Brevo Double Opt-In API Guide](./api/BREVO_DOI_API.md)** - フロントエンドエンジニア向けの Brevo Double Opt-In API 実装ガイド
 - **[CURL Examples](./api/CURL_EXAMPLES.md)** - Complete curl examples for testing the `/api/case-progress` and `/api/mixpanel/track` endpoints
 
 ### Setup Guides
@@ -39,8 +39,8 @@ Test scripts are located in the `scripts/` directory:
 
 - [Main README](../README.md) - Project overview and getting started
 - [Case Progress API Guide](./api/CASE_PROGRESS_API.md) - **フロントエンドエンジニア向け実装ガイド** ⭐
-- [Mixpanel Tracking Guide](./api/MIXPANEL_TRACKING.md) - フロントエンドエンジニア向けのMixpanelトラッキング実装ガイド
-- [Brevo Double Opt-In API Guide](./api/BREVO_DOI_API.md) - フロントエンドエンジニア向けのBrevo Double Opt-In API実装ガイド
+- [Mixpanel Tracking Guide](./api/MIXPANEL_TRACKING.md) - フロントエンドエンジニア向けの Mixpanel トラッキング実装ガイド
+- [Brevo Double Opt-In API Guide](./api/BREVO_DOI_API.md) - フロントエンドエンジニア向けの Brevo Double Opt-In API 実装ガイド
 - [API Examples](./api/CURL_EXAMPLES.md) - API testing examples (includes `/api/case-progress` and `/api/mixpanel/track`)
 - [Google Sheets Setup](./setup/GOOGLE_SHEETS_SETUP.md) - Google Sheets integration guide
 
