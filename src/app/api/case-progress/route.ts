@@ -376,6 +376,21 @@ async function handleCaseProgress(req: NextRequest) {
           // For other steps, don't update denormalized columns (keep existing values)
         }
 
+        // Universal extraction: Extract email and phone from any step if present
+        // This handles cases like "qualify_screen" where email/phone are sent but step name is different
+        if ('email' in stepDataWithCity && stepDataWithCity.email !== undefined) {
+          const emailValue = stepDataWithCity.email;
+          if (typeof emailValue === 'string') {
+            updateData.contactEmail = emailValue || null;
+          }
+        }
+        if ('phone' in stepDataWithCity && stepDataWithCity.phone !== undefined) {
+          const phoneValue = stepDataWithCity.phone;
+          if (typeof phoneValue === 'string' || phoneValue === null) {
+            updateData.contactPhone = phoneValue;
+          }
+        }
+
         // For create: use extracted values or existing values from progress JSONB
         const createData: {
           caseId: string;
