@@ -293,10 +293,17 @@ async function handleCaseProgress(req: NextRequest) {
           }
         }
 
-        // 2. Upsert Case (update currentStep and merge progress JSONB)
+        // 2. Upsert Case (update currentStep, merge progress JSONB, and extract denormalized columns)
         const existingCase = await tx.case.findUnique({
           where: { caseId },
-          select: { progress: true },
+          select: {
+            progress: true,
+            contactEmail: true,
+            contactPhone: true,
+            hospitalName: true,
+            balanceAmount: true,
+            inCollections: true,
+          },
         });
 
         const existingProgress =
@@ -310,17 +317,83 @@ async function handleCaseProgress(req: NextRequest) {
           [currentStep]: stepDataWithCity,
         };
 
+        // Extract denormalized columns from stepData for fast filtering/search
+        // Strategy: Keep existing values, but update when current step provides new data
+        // This allows denormalized columns to be populated from progress JSONB for fast queries
+        const updateData: {
+          currentStep: string;
+          progress: Prisma.InputJsonValue;
+          contactEmail?: string | null;
+          contactPhone?: string | null;
+          hospitalName?: string | null;
+          balanceAmount?: Prisma.Decimal | null;
+          inCollections?: boolean | null;
+        } = {
+          currentStep,
+          progress: updatedProgress as Prisma.InputJsonValue,
+        };
+
+        // Extract fields based on current step
+        // Only update denormalized columns if the current step provides relevant data
+        switch (currentStep) {
+          case 'contact': {
+            const contactData = stepDataWithCity as ContactStepData;
+            if (contactData.email) {
+              updateData.contactEmail = contactData.email;
+            }
+            if (contactData.phone !== undefined) {
+              // Allow null to clear phone number if explicitly set
+              updateData.contactPhone = contactData.phone;
+            }
+            break;
+          }
+          case 'hospital': {
+            const hospitalData = stepDataWithCity as HospitalStepData;
+            if (hospitalData.hospitalName) {
+              updateData.hospitalName = hospitalData.hospitalName;
+            }
+            break;
+          }
+          case 'balance': {
+            const balanceData = stepDataWithCity as BalanceStepData;
+            if (balanceData.balanceAmount !== undefined) {
+              updateData.balanceAmount = new Prisma.Decimal(balanceData.balanceAmount);
+            }
+            if (balanceData.inCollections !== undefined) {
+              updateData.inCollections = balanceData.inCollections;
+            }
+            break;
+          }
+          // For other steps, don't update denormalized columns (keep existing values)
+        }
+
+        // For create: use extracted values or existing values from progress JSONB
+        const createData: {
+          caseId: string;
+          currentStep: string;
+          progress: Prisma.InputJsonValue;
+          contactEmail?: string | null;
+          contactPhone?: string | null;
+          hospitalName?: string | null;
+          balanceAmount?: Prisma.Decimal | null;
+          inCollections?: boolean | null;
+        } = {
+          caseId,
+          currentStep,
+          progress: updatedProgress as Prisma.InputJsonValue,
+        };
+
+        // For create, try to extract from current step data, otherwise leave undefined
+        if (updateData.contactEmail !== undefined) createData.contactEmail = updateData.contactEmail;
+        if (updateData.contactPhone !== undefined) createData.contactPhone = updateData.contactPhone;
+        if (updateData.hospitalName !== undefined) createData.hospitalName = updateData.hospitalName;
+        if (updateData.balanceAmount !== undefined) createData.balanceAmount = updateData.balanceAmount;
+        if (updateData.inCollections !== undefined) createData.inCollections = updateData.inCollections;
+
         await tx.case.upsert({
           where: { caseId },
-          create: {
-            caseId,
-            currentStep,
-            progress: updatedProgress as Prisma.InputJsonValue,
-          },
-          update: {
-            currentStep,
-            progress: updatedProgress as Prisma.InputJsonValue,
-          },
+          create: createData,
+          update: updateData, // Prisma will only update fields that are defined (not undefined)
         });
       });
     } catch (dbError: unknown) {
