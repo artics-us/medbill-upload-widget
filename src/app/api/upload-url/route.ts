@@ -70,8 +70,8 @@ export async function POST(req: NextRequest) {
     const objectPath = `case/${caseId}/${fileName}`;
     const bucketName = BUCKET_NAME;
 
-    // 3) If caseId was provided from query parameter (checkDirectory=true), verify directory exists
-    // If directory doesn't exist, log a warning but continue (GCS will create the directory when file is uploaded)
+    // 3) If caseId was provided from query parameter (checkDirectory=true), ensure directory exists.
+    // If it does not exist, proactively create a placeholder object so uploads won't fail on missing prefix.
     if (checkDirectory && providedCaseId) {
       try {
         // Check if any file exists in the directory
@@ -79,12 +79,21 @@ export async function POST(req: NextRequest) {
           .bucket(bucketName)
           .getFiles({ prefix: `case/${caseId}/`, maxResults: 1 });
 
-        // If directory doesn't exist, log a warning but continue
-        // GCS will automatically create the directory structure when the file is uploaded
+        // If directory doesn't exist, create a placeholder file to ensure prefix exists
         if (files.length === 0) {
-          console.warn(
-            `Directory for case_id "${caseId}" does not exist, but continuing. Directory will be created on upload.`,
-          );
+          try {
+            await storage
+              .bucket(bucketName)
+              .file(`case/${caseId}/.init`)
+              .save('', { resumable: false, contentType: 'text/plain' });
+            console.info(`Created directory placeholder for case_id "${caseId}"`);
+          } catch (createErr) {
+            console.error(
+              `Failed to create directory placeholder for case_id "${caseId}":`,
+              createErr,
+            );
+            // Continue; GCS will still allow direct upload even if placeholder creation failed
+          }
         }
       } catch (err) {
         // Log error but don't fail - directory will be created on upload
