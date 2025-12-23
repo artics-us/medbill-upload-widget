@@ -399,7 +399,11 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
               type="button"
               onClick={openFileDialog}
               disabled={isUploading}
-              className="px-4 py-2 rounded-full text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:text-gray-600"
+              className={`px-4 py-2 rounded-full text-sm font-semibold text-white transition-all ${
+                isUploading
+                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-[#0052CC] to-[#0A2540] hover:shadow-lg'
+              }`}
             >
               Choose files
             </button>
@@ -454,7 +458,11 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
                 type="button"
                 onClick={openFileDialog}
                 disabled={isUploading}
-                className="px-4 py-2 rounded-full text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:text-gray-600"
+                className={`px-4 py-2 rounded-full text-sm font-semibold text-white transition-all ${
+                  isUploading
+                    ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-[#0052CC] to-[#0A2540] hover:shadow-lg'
+                }`}
               >
                 Select another
               </button>
@@ -476,10 +484,10 @@ function UploadWidgetContent({ caseId }: { caseId: string | null }) {
           type="button"
           onClick={runUpload}
           disabled={isUploading || files.length === 0}
-          className={`w-full rounded-full py-3 text-sm font-semibold ${
+          className={`w-full rounded-xl py-4 text-sm font-bold text-white transition-all flex items-center justify-center ${
             isUploading || files.length === 0
               ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-              : 'bg-emerald-500 text-white hover:bg-emerald-600'
+              : 'bg-gradient-to-r from-[#0052CC] to-[#0A2540] hover:shadow-lg'
           }`}
         >
           {isUploading
